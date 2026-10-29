@@ -140,18 +140,18 @@ docker compose up -d --build      # 首次约 3~5 分钟（拉 go 镜像 + go mo
 
 ### 更新到服务器（本地 → 192.168.2.22）
 
-服务器工作副本跟踪的是 `local` 分支，远端是 fork（`git remote -v` 里叫 `fork`，配置见下）。
-改完代码、本地 build 与 `go test ./...` 通过后：
+服务器工作副本常驻在 `local` 分支，跟踪 `origin/local`（`origin` = 本 fork，`upstream` = 上游）。
+本地 commit + push 之后，服务器上一条 `git pull` 就是同步代码：
 
 ```bash
-# 0) 本地先推
+# 0) 本地
 git push origin local
 
-# 1) 服务器：留旧镜像当回滚点，再快进到最新 local
+# 1) 服务器
 ssh root@192.168.2.22
 cd /home/appsrv/workbuddy2api-panel
 docker tag workbuddy2api-panel-wb2api:latest workbuddy2api-panel-wb2api:pre-$(date +%Y%m%d-%H%M)
-git fetch fork local && git checkout local && git merge --ff-only fork/local
+git pull --ff-only                       # = fetch origin + fast-forward 到 origin/local
 
 # 2) 重建（改了 Go / 前端 / Dockerfile 都必须重建，restart 不生效）
 docker compose up -d --build
@@ -162,19 +162,27 @@ curl -s http://127.0.0.1:7863/healthz
 docker compose logs --tail 30 wb2api
 ```
 
+**只改了 `md/`、`README` 这类不参与编译的文件**，拉到就完事，不用重建：
+
+```bash
+git pull --ff-only                    # 结束
+```
+
 回滚（代码层）：
 
 ```bash
-git checkout <旧 sha> && docker compose up -d --build
+git checkout <旧 sha> && docker compose up -d --build   # 记得之后 git switch local
 # 或者直接回退镜像：docker tag workbuddy2api-panel-wb2api:pre-<时间> workbuddy2api-panel-wb2api:latest
 #                     docker compose up -d --force-recreate
 ```
 
-首次在新机器上部署时补一步远端配置（服务器原先 `origin` 指的就是上游，别混用）：
+新机器首次部署要先把远端配成「`origin` = 本 fork」（**上游 clone 下来时 `origin` 指的是上游，很容易pull错**）：
 
 ```bash
-git remote add fork https://github.com/wyybs/workbuddy2api-panel.git
-git fetch fork local:local
+git remote rename origin upstream || true
+git remote add origin https://github.com/wyybs/workbuddy2api-panel.git
+git fetch origin
+git checkout -B local origin/local     # 常驻 local 分支
 ```
 
 数据卷（全部在宿主机，删容器不丢）：

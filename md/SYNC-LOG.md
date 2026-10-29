@@ -7,6 +7,22 @@
 
 ## 时间线（新→旧）
 
+### 2026-10-29 15:41 服务器仓库规范化：`origin` 改指本 fork，日常同步只剩 `git pull`
+
+- 服务器 `/home/appsrv/workbuddy2api-panel` 原先 `origin` = **上游**（clone 时就留下的），
+  我们的 fork 只能另起名 `fork`，每次同步得写 `git fetch fork local && git merge --ff-only fork/local`。
+- 改为：`git remote rename origin upstream && git remote rename fork origin`。
+  现在与本地仓库命名一致：`origin` = 本 fork，`upstream` = 上游；
+  `local` 跟踪 `origin/local`，`main` 跟踪 `upstream/main`。
+- 日常更新流程因此收敛为两条：
+  ```bash
+  git pull --ff-only          # 服务器：只同步代码/文档
+  docker compose up -d --build   # 只有动到 Go / 前端 / Dockerfile 才需要
+  ```
+- 实测：`git pull --ff-only` 把 `2bdac00 → 6849152` 拉平（此前 GitHub TLS 抖动失败的补拉），
+  容器仍 `Up (healthy)`；顺带 `git fetch upstream main:main` 把服务器的 `main` 也快进到 `9232c89`。
+- 服务器 `main` 不参与部署，只作为上游镜像存在；部署永远由 `local` 构建。
+
 ### 2026-10-29 15:33 fork 的 `main` 快进到上游并推送
 
 - 现象：fork 页面上 `main` 一直停在 `bb6d581`，看起来「上游没更新」。
