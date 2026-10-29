@@ -1,0 +1,5 @@
+# workbuddy2api-panel 能力基线（label | 路径 | 正则；正则里不要用 |）
+# 数量变少 = 疑似收窄，必须先判定再决定跟不跟
+面板路由|internal/panel|HandleFunc\("
+服务端路由|internal/server|HandleFunc\("
+模型白名单逻辑|internal/livecfg|NormalizeAllowedModels
