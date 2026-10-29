@@ -7,6 +7,18 @@
 
 ## 时间线（新→旧）
 
+### 2026-10-29 15:33 fork 的 `main` 快进到上游并推送
+
+- 现象：fork 页面上 `main` 一直停在 `bb6d581`，看起来「上游没更新」。
+- 实际：上游今天推了 6 个提交（`4d643b1` 07:13 → `9232c89` 14:16），其中 `a25192e`、`9232c89`
+  是下午 14 点前后才进的；fork 的 `main` 只是本地镜像分支，**不会自动跟进**。
+- 本地 `main` 在 15:17 已被巡检脚本快进到 `9232c89`，但**从没 push 过**，所以远端仍是 `bb6d581`。
+- 本次：`git switch main && git merge --ff-only upstream/main && git push origin main`
+  → `bb6d581..9232c89`（纯 ff，未产生提交）。
+- 现状：`main` = `upstream/main` = `origin/main` = **9232c89**；`local` = `2bdac00`（内容等价，见上一条）。
+- 提醒：fork 页面上 `main` 显示的日期是「最后一次推送时间」，不是上游最后一次提交时间——
+  判断上游有没有更新要 `git fetch upstream` 后看 `upstream/main`，别看 fork 页面。
+
 ### 2026-10-29 15:26 推送 fork + 部署到 192.168.2.22
 
 - 推送：`origin/local` `235269a → db41877`（含 2 个 port 提交、Dockerfile 修复、文档与日志）。
