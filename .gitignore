@@ -36,6 +36,7 @@ docs/
 *.md
 !README.md
 !AGENTS.md
+!README.local.md
 
 # Windows binaries
 /wb2api.exe

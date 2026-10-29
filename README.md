@@ -1,3 +1,17 @@
+<!-- ===== 本仓库（fork）说明，与上游同步时请保留本段 ===== -->
+> **这是 [`wyybs/workbuddy2api-panel`](https://github.com/wyybs/workbuddy2api-panel)**，fork 自
+> [`misakano7545/workbuddy2api-panel`](https://github.com/misakano7545/workbuddy2api-panel)。
+>
+> - 分支：`main` 跟随上游（只快进）、`local` 做二开（**所有改动都在这里**）
+> - 同步上游：双击 `sync-upstream.cmd`
+> - 构建 / 部署 / 踩坑 / 排程 / 客户端接入：见 **[README.local.md](README.local.md)**
+>
+> 下方为上游原始文档，保持原样以便与上游合并。
+
+---
+
+<!-- ===== 以下为上游原始文档 ===== -->
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/DGZSbot/ai-icon/refs/heads/main/WorkBuddy.png" alt="WorkBuddy2API" width="120">
 </p>
