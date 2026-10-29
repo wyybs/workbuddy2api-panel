@@ -1,6 +1,6 @@
 # workbuddy2api-panel 同步执行契约
 
-> 跟随基线：`upstream/main`（起始 2026-10-29，原因：初始跟随）
+> 跟随基线：`main`（= `upstream/main` 的只读镜像，只做 `merge --ff-only`；起始 2026-10-29）
 > 项目自带的分支说明见根目录 `README.local.md`；本文件只管**同步动作与判据**，不重复项目介绍。
 
 ## 0. 触发
@@ -13,8 +13,7 @@
 | 分支 | 角色 | 规则 |
 |---|---|---|
 | `local` | 二开活分支，跟踪 `origin/local` | 只向前；**不 rebase、不 merge 上游** |
-| `upstream/main` | 只读对齐基线 | 只比较，不改 |
-| `main` | fork 上的上游镜像（本项目既有约定） | 只 `merge --ff-only`，不放假提交 |
+| `main` | 上游镜像（`BASE_REF`），跟踪 `upstream/main` | 只 `merge --ff-only`，不放假提交；巡检脚本会自动快进它 |
 
 > ⚠️ 仓库里的 `sync-upstream.cmd` 做的是「`local` rebase 到 `main`」——**已弃用**。
 > 原因：`local` 已推到 `origin/local`，rebase 会改写已发布历史，必须 force push，多台机器一参与就出事。

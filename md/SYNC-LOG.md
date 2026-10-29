@@ -7,6 +7,13 @@
 
 ## 时间线（新→旧）
 
+### 2026-10-29 15:18 基线改指 main（不再用 upstream/main 比较）
+
+- `BASE_REF` 由 `upstream/main` 改为 `main` —— 本仓库既有约定是 main 只做 ff 等于 upstream/main，
+  没必要在比较时绕过它。
+- `inspect.sh` 已支持「基线是本地镜像分支时自动快进」：本次实测 `main` bb6d581 -> 9232c89，未产生提交。
+- 说明：`upstream/main` 是 remote-tracking 引用（fetch 自动生成），不是我们建的分支；本地分支始终只有 main / local。
+
 ### 2026-10-29 15:05 接入 fork-upstream-sync（首次基线）
 
 - 基线：`local` @ 235269a / `upstream/main` @ bb6d581（分叉点 bb6d581，**local 领先 0 / 落后 2**）
