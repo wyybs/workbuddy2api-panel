@@ -6,6 +6,8 @@ data/
 *.env
 .env
 .env.*
+# 同步契约（不含密钥，纯配置）：仅此一个文件放行
+!.fork-sync.env
 
 # Binaries (anchored to repo root only — bare "login"/"credit" would also ignore cmd/login/, cmd/credit/)
 /login
@@ -37,6 +39,9 @@ docs/
 !README.md
 !AGENTS.md
 !README.local.md
+# 同步契约与同步日志
+!md/SYNC-GUIDE.md
+!md/SYNC-LOG.md
 
 # Windows binaries
 /wb2api.exe
