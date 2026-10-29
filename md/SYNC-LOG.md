@@ -7,6 +7,24 @@
 
 ## 时间线（新→旧）
 
+### 2026-10-29 15:26 推送 fork + 部署到 192.168.2.22
+
+- 推送：`origin/local` `235269a → db41877`（含 2 个 port 提交、Dockerfile 修复、文档与日志）。
+- 服务器仓库原先的坑：`/home/appsrv/workbuddy2api-panel` 的 `origin` 指的是**上游**仓库，
+  且跑在 `main` @ bb6d581（4 小时前构建，没有本次两个修复）。新增远端 `fork` 指向本 fork 后切到 `local`。
+- **Dockerfile 的 GOPROXY 三行此前只存在于服务器工作区**（`Dockerfile.orig.bak` 旁证），从未入库；
+  README 4.2 却写着「已内置」。本次补提交 `f4c6d3e` 入库，并在服务器 `git checkout -- Dockerfile`
+  丢掉那份未纳管的手改，避免下次 pull 冲突。
+- 部署步骤（已写进 `README.local.md` §5「更新到服务器」）：
+  `docker tag …:pre-20261029-1525`（旧镜像留作回滚点）→ `git fetch fork local && git merge --ff-only fork/local`
+  → `docker compose up -d --build`。
+- 结果：HEAD `db41877`，镜像重建完成，容器 `Up (healthy)`；
+  `/healthz` → `{"healthy":2,"realm_servable":{"cn":true,"global":false},"total":2}`；
+  `curl /panel/app.js | grep -c openRemarks` = 3（行内「备注」入口已上线）；
+  日志无异常，恢复 6 个用量桶 / 29 条积分流水。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261029-1525 workbuddy2api-panel-wb2api:latest` +
+  `docker compose up -d --force-recreate`；或 `git checkout c605270 && docker compose up -d --build`。
+
 ### 2026-10-29 15:20 移植上游 2 个修复（updater exe 重试 / 账号池行内备注）
 
 - 巡检：`upstream/main` @ 9232c89，`local` 领先 4 / 落后 2，工作区干净，上游可达（8 heads）。
