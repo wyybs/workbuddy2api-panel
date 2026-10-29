@@ -66,21 +66,22 @@ git config remote.pushDefault origin                            # 裸 git push �
 
 ## 3. 同步上游
 
-双击根目录的 **`sync-upstream.cmd`**，等价于：
+> ⚠️ **`sync-upstream.cmd`（拉上游 main 再 `git rebase main`）已弃用。**
+> `local` 已推到 `origin/local`，rebase 会改写已发布历史、必须 force push，多台机器一参与就出事。
+
+正式流程与判据以 **`md/SYNC-GUIDE.md`** 为准，历史结论与「已判定不跟」清单一律追加到 **`md/SYNC-LOG.md`**。一句话版：
 
 ```bash
-git fetch upstream
-git checkout main
-git merge --ff-only upstream/main      # 上游若有强推/分叉，这里会直接失败而不是静默合并
-git push origin main
-git checkout local
-git rebase main                        # 把二开提交重放到最新上游之上
+bash ~/.workbuddy/skills/fork-upstream-sync/scripts/inspect.sh .   # 只读巡检：fetch + 差异 + 能力基线
+git tag pre-sync-$(date +%Y%m%d-%H%M%S)                            # 回滚点，出事 reset --hard 回这里
+git switch local
+git cherry-pick -x <upstream-sha>                                  # 提交信息前缀改 port:，剥离收窄 hunk
+go build ./... && go test ./...
 ```
 
-失败会自动停住并打印 `git status`，不会强改任何东西。
+判「跟上了」看 `git diff upstream/main..local -- '*.go' '*.js' '*.html'` 是否为空，**不看** `rev-list` 计数——cherry-pick 搬内容不搬 SHA，搬完照样显示「落后 N」。
 
-> **rebase 冲突处理**：`local` 的提交会被重放到新上游之上，改到同一处就会冲突。
-> 嫌麻烦可以把最后一步换成 `git merge main`（历史多几个合并节点，但不冲突更省心）。
+`main` 只做 `merge --ff-only` 镜像上游，从不放自己的提交。
 
 ---
 
@@ -100,7 +101,7 @@ go build -trimpath -ldflags="-s -w" -o wb2api.exe ./cmd/server
 ### 4.2 国内网络必须先改 GOPROXY
 
 直连 `proxy.golang.org` **必然超时**（实测 `dial tcp 142.251.33.209:443: i/o timeout`）。
-本仓库的 `Dockerfile` 已内置：
+本仓库的 `Dockerfile` 已内置（2026-10-29 补提交入库，此前只存在于服务器工作区、未纳管）：
 
 ```dockerfile
 ARG GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,direct
@@ -136,6 +137,45 @@ docker compose up -d --build      # 首次约 3~5 分钟（拉 go 镜像 + go mo
 | 面板 | `http://192.168.2.22:7863/panel/` |
 | API | `http://192.168.2.22:7863/v1` |
 | API Key | 见服务器 `config.json` 的 `api_key`（**不写进仓库**） |
+
+### 更新到服务器（本地 → 192.168.2.22）
+
+服务器工作副本跟踪的是 `local` 分支，远端是 fork（`git remote -v` 里叫 `fork`，配置见下）。
+改完代码、本地 build 与 `go test ./...` 通过后：
+
+```bash
+# 0) 本地先推
+git push origin local
+
+# 1) 服务器：留旧镜像当回滚点，再快进到最新 local
+ssh root@192.168.2.22
+cd /home/appsrv/workbuddy2api-panel
+docker tag workbuddy2api-panel-wb2api:latest workbuddy2api-panel-wb2api:pre-$(date +%Y%m%d-%H%M)
+git fetch fork local && git checkout local && git merge --ff-only fork/local
+
+# 2) 重建（改了 Go / 前端 / Dockerfile 都必须重建，restart 不生效）
+docker compose up -d --build
+
+# 3) 验活
+docker compose ps                     # 等 STATUS 变成 Up (healthy)
+curl -s http://127.0.0.1:7863/healthz
+docker compose logs --tail 30 wb2api
+```
+
+回滚（代码层）：
+
+```bash
+git checkout <旧 sha> && docker compose up -d --build
+# 或者直接回退镜像：docker tag workbuddy2api-panel-wb2api:pre-<时间> workbuddy2api-panel-wb2api:latest
+#                     docker compose up -d --force-recreate
+```
+
+首次在新机器上部署时补一步远端配置（服务器原先 `origin` 指的就是上游，别混用）：
+
+```bash
+git remote add fork https://github.com/wyybs/workbuddy2api-panel.git
+git fetch fork local:local
+```
 
 数据卷（全部在宿主机，删容器不丢）：
 
