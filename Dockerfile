@@ -2,6 +2,9 @@
 FROM golang:1.26.10-alpine AS build
 WORKDIR /src
 COPY go.mod ./
+# 国内网络：默认 GOPROXY 在 CN 不可达，走国内镜像
+ARG GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,direct
+ENV GOPROXY=${GOPROXY}
 RUN go mod download
 COPY . .
 ARG APP_VERSION=dev
