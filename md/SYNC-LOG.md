@@ -4,7 +4,7 @@
 
 | 上游提交 / 范围 | 内容 | 为什么不跟 |
 |---|---|---|
-| `96a33f1`（2026-10-30） | 删 4 个「上游已下架」任务 + 整个夜猫子排程：`autoActions` 37→33 条、`scheduler` 任务族 6→5（`blackcat.go` 整个删）、配置三键 `blackcat_hours` / `blackcat_enabled` / `night_account_cap` 消失、`upstream` 删 `InNightWindow`/`BlackcatNeed`/`RunNightChats`/`DesktopDesignCanvasSequence` | 删除类，**待确认后再议**。收益已被 `046b1fd` 拿走（列表里没有的 code 直接 skipped、照样不打上游），本条只是清代码；而 `night_account_cap` 是「夜间只在积分 Top-N 号做真实对话」的人味化开关，与夜猫子绑定，一并删除属于能力减少。确认线上没开过夜猫子后可重新评估。 |
+| `96a33f1`（2026-10-30） | 删 4 个「上游已下架」任务 + 整个夜猫子排程：`autoActions` 37→33 条、`scheduler` 任务族 6→5（`blackcat.go` 整个删）、配置三键 `blackcat_hours` / `blackcat_enabled` / `night_account_cap` 消失、`upstream` 删 `InNightWindow`/`BlackcatNeed`/`RunNightChats`/`DesktopDesignCanvasSequence` | **不跟（已实证）**。`192.168.2.22` 生产启动日志 2026-10-30 10:32 明确输出「夜猫子已启用：[23] 点（23:00–08:00 窗口 glm-5.2 对话补足）」，即我们这台**正在用**夜猫子；`night_account_cap` 是「夜间只在积分 Top-N 号做真实对话」的人味化开关，与夜猫子绑定，一并删除属能力减少。另外「下架任务不再白打上游」的收益已由 `046b1fd` 拿走，本条只剩清代码。 |
 
 ## 时间线（新→旧）
 
@@ -38,6 +38,19 @@
   `inspect.sh` 第 6 段用 `read -r` 读出的 `path` / 正则各带一个 `\r`，三项计数全部输出 `0`（假 0）；
   本次靠手工 grep 核对（数值与基线一致）。修法二选一：`sed -i 's/\r$//' .fork-sync-baseline`，
   或让脚本在 `read` 后剥掉 `\r`（更耐造，别人用 Windows 编辑器改这文件不会再中招）。
+
+### 2026-10-30 10:33 部署到 192.168.2.22（上游 9 提交上线）
+
+- 服务器 `/home/appsrv/workbuddy2api-panel`：`eaf09e7 → 465960c`（`git pull --ff-only`，27 文件 +1162/−45，无冲突）。
+- 镜像回滚点：`docker tag workbuddy2api-panel-wb2api:latest ...:pre-20261030-1029`（旧镜像 `09fc921` 保留）。
+- 重建：`docker compose up -d --build` → 容器 `workbuddy2api` Recreated / Started，`Up (healthy)`。
+- 验证：`/healthz` → `{"healthy":3,"realm_servable":{"cn":true,"global":true},"total":3}`；
+  `/panel/` 200；`app.js` 中 `openRemarks` 命中 3（备注入口在）；近 5 分钟 `WARN|ERROR` **0 条**；请求日志 3 条全 200。
+- 顺带实证「夜猫子」：启动日志打出「夜猫子已启用：[23] 点」，坐实 `96a33f1` 不能跟（见上表）。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261030-1029 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或 `git reset --hard pre-sync-20261030-101335` 后重建。
+- 服务器访问方式（记一笔，别再走密码）：本机密钥 `~/.ssh/id_wb_222`，`ssh -i ~/.ssh/id_wb_222 root@192.168.2.22`。
+  `app` 账户无密钥、密码认证也不通。
 
 ### 2026-10-29 15:41 服务器仓库规范化：`origin` 改指本 fork，日常同步只剩 `git pull`
 
