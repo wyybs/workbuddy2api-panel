@@ -1549,6 +1549,10 @@ func (p *Panel) runAutoAllObserved(ctx context.Context, a *auth.Auth, observe fu
 		return out
 	}
 
+	// have 本账号任务 code 全集（取自 mp 口径，它是默认口径的超集，见 upstream.ListTasksMP）。
+	// nil = 列表没拿到 → 不筛选，全部照旧跑（宁可白跑也不能因为一次读失败把所有任务跳过）。
+	var have map[string]bool
+
 	// 阶段 0：批量接受尚未接受的任务（失败不阻塞——行为事件才是进度唯一判据）。
 	emit(autoTaskRunEvent{Kind: "phase", TaskCode: "(批量接受)"})
 	if ctx.Err() == nil {
@@ -1584,6 +1588,10 @@ func (p *Panel) runAutoAllObserved(ctx context.Context, a *auth.Auth, observe fu
 		emit(autoTaskRunEvent{Kind: "phase", TaskCode: "(批量接受-mp)"})
 		if ctx.Err() == nil {
 			if mpTasks, err := p.cfg.Upstream.ListTasksMP(a); err == nil && ctx.Err() == nil {
+				have = make(map[string]bool, len(mpTasks))
+				for _, t := range mpTasks {
+					have[t.TaskCode] = true
+				}
 				mpCodes := acceptPendingCodes(mpTasks)
 				if len(mpCodes) > 0 && ctx.Err() == nil {
 					emit(autoTaskRunEvent{Kind: "phase", TaskCode: "(批量接受-mp)"})
@@ -1614,6 +1622,16 @@ func (p *Panel) runAutoAllObserved(ctx context.Context, a *auth.Auth, observe fu
 	for _, act := range autoActions {
 		if ctx.Err() != nil {
 			break
+		}
+		// 本账号没有这个任务就跳过：不 accept、不跑动作、不 report。
+		// 线上 26 个 CN 号 × Model_chat_GLM5.2/Buddy_App_QQ/create_canvas/black_cat
+		// 每轮全部 "该账号没有此任务"，等于每轮白打 104 次上游调用（还会撞软限流）。
+		// 结果行照旧输出 skipped，面板/job 视图与以前一致。
+		if have != nil && !have[act.TaskCode] {
+			result := map[string]any{"task_code": act.TaskCode, "status": "skipped", "message": "该账号没有此任务"}
+			out = append(out, result)
+			emit(autoTaskRunEvent{Kind: "result", TaskCode: act.TaskCode, Result: result, Completed: true})
+			continue
 		}
 		emit(autoTaskRunEvent{Kind: "task_start", TaskCode: act.TaskCode})
 		if ctx.Err() != nil {
