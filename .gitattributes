@@ -7,6 +7,11 @@
 # 属性一旦写死，检出与规范化就与各人的 autocrlf 设置无关。
 *.js   text eol=lf
 
+# 能力基线文件必须 LF：fork-upstream-sync 的 inspect.sh 用 `while read` 逐行拆
+# `label|路径|正则`，行尾带 \r 会让路径与正则各多出一个 \r，git cat-file 与 grep
+# 全部匹配失败，结果第 6 段三项计数静默输出 0（假 0，看起来像"上游能力归零"）。
+.fork-sync-baseline text eol=lf
+
 # 本文件自身也钉成 LF：否则 core.autocrlf=true 的机器下次检出会把它写成 CRLF，
 # 提交时反复刷出 "LF will be replaced by CRLF" 警告（规则本身不受影响，只是噪音）。
 .gitattributes text eol=lf
