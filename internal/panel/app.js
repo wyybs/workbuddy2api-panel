@@ -678,6 +678,10 @@ function renderUpdateStatus(update) {
     note.textContent = '更新失败：' + update.last_error;
   } else if (update.update_available) {
     note.textContent = '发现新版本 v' + update.latest_version + (update.can_install ? '' : ' · 请手动更新');
+  } else if (update.local_build) {
+    // 版本号不是时间版本（本地构建 / 没注入 -X main.appVersion）：没有可比对的版本，
+    // 不谎报「有新版」，只说明为什么跳过。
+    note.textContent = '本地构建（未注入版本号）· 跳过版本检查';
   } else if (update.latest_version) {
     note.textContent = '已是最新版本 · v' + update.latest_version;
   } else {
@@ -698,7 +702,7 @@ async function checkForUpdates() {
   try {
     const update = await api('update/check', { method: 'POST' });
     renderUpdateStatus(update);
-    toast(update.update_available ? '发现新版本 v' + update.latest_version : '当前已是最新版本', update.update_available ? 'ok' : '');
+    toast(update.update_available ? '发现新版本 v' + update.latest_version : (update.local_build ? '本地构建，跳过版本检查' : '当前已是最新版本'), update.update_available ? 'ok' : '');
   } catch (e) {
     try { renderUpdateStatus(await api('update')); } catch (_) {}
     toast('检查更新失败：' + e.message, 'err');

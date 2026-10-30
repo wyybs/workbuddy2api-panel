@@ -91,6 +91,9 @@ vm.runInContext('let updateData = null, updateBusy = false;\n' +
   assert(nodes.get('updateNote').textContent.includes('checksum mismatch'));
   ctx.renderUpdateStatus({...response, can_install:false});
   assert.equal(nodes.get('btnUpdateInstall').hidden, true, 'unsupported platform hides install');
+  ctx.renderUpdateStatus({current_version:'dev', latest_version:'2026.10.29.2131', update_available:false, local_build:true, can_install:false});
+  assert(nodes.get('updateNote').textContent.includes('本地构建'), 'dev build must not claim a new version');
+  assert.equal(nodes.get('navUpdate').hidden, true, 'dev build hides the update badge');
   response = {status:{...response, installing:true}};
   ctx.renderUpdateStatus(response.status);
   assert.equal(nodes.get('btnUpdateInstall').disabled, true);

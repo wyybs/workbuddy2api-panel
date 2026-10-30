@@ -73,12 +73,17 @@ type Settings struct {
 
 // Status is safe to expose through the authenticated panel API.
 type Status struct {
-	CurrentVersion  string `json:"current_version"`
-	LatestVersion   string `json:"latest_version"`
-	ReleaseURL      string `json:"release_url"`
-	ReleaseNotes    string `json:"release_notes"`
-	CheckedAt       string `json:"checked_at"`
-	LastError       string `json:"last_error"`
+	CurrentVersion string `json:"current_version"`
+	LatestVersion  string `json:"latest_version"`
+	ReleaseURL     string `json:"release_url"`
+	ReleaseNotes   string `json:"release_notes"`
+	CheckedAt      string `json:"checked_at"`
+	LastError      string `json:"last_error"`
+	// LocalBuild 当前二进制的版本号不是时间版本（本地构建 / 未注入 -X main.appVersion）。
+	// 这种构建没有可比较的版本，不该声称「发现新版本」——面板据此显示「本地构建，跳过版本检查」。
+	// 起因：Dockerfile 的 APP_VERSION 缺省 dev，updater 又把「版本解析失败」当成
+	// 「一定比 release 旧」，于是每次都能"发现"上游刚打的 tag，纯噪音。
+	LocalBuild      bool   `json:"local_build"`
 	UpdateAvailable bool   `json:"update_available"`
 	CanInstall      bool   `json:"can_install"`
 	Installing      bool   `json:"installing"`
@@ -152,6 +157,7 @@ func New(version, repository, configPath string, settings Settings) *Manager {
 		settings:   settings,
 		status: Status{
 			CurrentVersion: version,
+			LocalBuild:     !isTimestampedVersion(version),
 			AutoEnabled:    settings.AutoEnabled,
 			AutoTime:       settings.AutoTime,
 		},
@@ -257,7 +263,10 @@ func (m *Manager) Check(ctx context.Context) error {
 			m.status.ReleaseURL = releaseURL
 			m.status.ReleaseNotes = newest.Body
 			current, currentOK := parseVersion(m.version)
-			m.status.UpdateAvailable = !currentOK || newestVersion.ordinal > current.ordinal
+			m.status.LocalBuild = !currentOK
+			// 版本号不是时间格式（本地构建）时只报「查到的最新 release」，不报「有更新」：
+			// 没有可比对的版本就没有"新旧"可言，声称有新版本只会误导（见 Status.LocalBuild）。
+			m.status.UpdateAvailable = currentOK && newestVersion.ordinal > current.ordinal
 			m.status.CanInstall = m.canInstallLocked()
 			m.status.LastError = ""
 			m.status.CheckedAt = m.now().Format(time.RFC3339)
@@ -972,11 +981,18 @@ func (m *Manager) scheduleDue(now time.Time) (auto, regular bool) {
 }
 
 func (m *Manager) canInstallLocked() bool {
-	_, versioned := parseVersion(m.version)
-	return versioned &&
+	return isTimestampedVersion(m.version) &&
 		(runtime.GOOS == "linux" || runtime.GOOS == "windows") &&
 		(runtime.GOARCH == "amd64" || runtime.GOARCH == "arm64") &&
 		m.executable != "" && !isContainer() && !processSupervised()
+}
+
+// isTimestampedVersion 版本号能否按「年.月.日.时分」解析。
+// 不能（dev / 空 / git describe 出来的 2026.10.30-3-gabc）意味着这是一份本地构建，
+// 既没有可比较的版本，也永远不该声称「有新版」——上游一发 tag 就会误报。
+func isTimestampedVersion(version string) bool {
+	_, ok := parseVersion(version)
+	return ok
 }
 
 func parseVersion(tag string) (parsedVersion, bool) {

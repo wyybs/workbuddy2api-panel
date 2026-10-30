@@ -69,6 +69,34 @@ func TestCheckSelectsNewestTimestampedRelease(t *testing.T) {
 	}
 }
 
+// 本地构建（版本号不是时间格式）只报查到的最新 release，绝不声称「有更新」：
+// 没有可比对的版本就没有新旧可言，否则上游每打一个 tag 面板就误报一次。
+func TestCheckLocalBuildDoesNotReportUpdate(t *testing.T) {
+	body := `[
+		{"tag_name":"v2026.10.29.2131","html_url":"https://github.com/example/project/releases/tag/v2026.10.29.2131","draft":false,"prerelease":false}
+	]`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	defer server.Close()
+
+	m := New("dev", "example/project", "", Settings{})
+	m.apiBaseURL = server.URL
+	if err := m.Check(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got := m.Status()
+	if got.UpdateAvailable {
+		t.Fatalf("dev 构建不该报有新版: %+v", got)
+	}
+	if !got.LocalBuild {
+		t.Fatalf("dev 构建应标记 local_build: %+v", got)
+	}
+	if got.LatestVersion != "2026.10.29.2131" || got.CanInstall {
+		t.Fatalf("仍应给出查到的最新版本且不可安装: %+v", got)
+	}
+}
+
 func TestCheckReportsReleaseAPIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "rate limited", http.StatusForbidden)
