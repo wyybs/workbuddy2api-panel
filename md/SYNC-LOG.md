@@ -8,6 +8,31 @@
 
 ## 时间线（新→旧）
 
+### 2026-10-30 10:48 修「发现新版本」误报并重新部署
+
+- 症状：面板长期提示「发现新版本 v2026.10.29.2131」。线上 `/panel/api/update` 回
+  `current_version=dev`、`update_available=true`、`can_install=false`。
+- 根因两条：① `Dockerfile` 的 `ARG APP_VERSION=dev`，compose 没传 build arg，二进制 `appVersion=dev`；
+  ② `updater.Check` 里 `UpdateAvailable = !currentOK || newest > current`，把「版本号解析失败」（dev）
+  直接当成「一定比 release 旧」→ 上游每打一个 tag 就误报一次，而 dev 构建永远没有可比对的版本。
+- 改法（提交 `110d0e6`，前缀 `local:`）：`Status` 增加 `local_build`；`Check` 里
+  `UpdateAvailable = currentOK && newest > current`，解析失败只报查到的最新 release；
+  `canInstallLocked` 复用新增的 `isTimestampedVersion()`；前端 `local_build` 显示
+  「本地构建（未注入版本号）· 跳过版本检查」，toast 同步。新增
+  `TestCheckLocalBuildDoesNotReportUpdate` + 前端断言。
+- 校验：`go build` / `node --check` / `go test ./...` 全绿；线上复查
+  `local_build=true`、`update_available=false`、`can_install=false`，面板文案已换。
+- 部署：服务器 github 拉取连续失败（`GnuTLS recv error` / `curl 28` 超时）→ 改用
+  `git bundle` + `scp` 走文件通道：本地 `git bundle create c39b589..local` →
+  `scp /tmp/wb2api-110d0e6.bundle` → 服务器 `git fetch <bundle> local:sync-incoming` →
+  `git merge --ff-only sync-incoming`，**以后再遇服务器拉不动可照这条走**。
+- 镜像回滚点：`workbuddy2api-panel-wb2api:pre-20261030-1040`（上一版 `:pre-20261030-1029` 仍在）。
+- 部署后状态：容器 `Up (healthy)`、`/panel/` 200、请求 7 条全 200、`WARN|ERROR` 0 条。
+- ⚠️ 观察到账号数从 3 掉到 2：`auths/` 里 `892aa042`（zhipeng970218@gmail.com）的
+  `.json` 与 `.json.bak` 在 **10:36** 一起消失（目录 mtime 记录），两个容器启动点之间；
+  两次部署只重建镜像、不碰 `auths/`，`admin_audit.log` 因 `admin.enabled=false` 无记录，
+  疑似面板上手动删除。需要该号时重新登录即可。
+
 ### 2026-10-30 10:13 跟进上游 9 个提交（`v2026.10.29.2131` 之后），跳过删除类 1 条
 
 - 巡检：`main` 落后 14 个提交，`inspect.sh` 自动 ff `9232c89 → 5373578`（未产生提交）；
