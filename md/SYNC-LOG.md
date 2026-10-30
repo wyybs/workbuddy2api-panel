@@ -4,8 +4,40 @@
 
 | 上游提交 / 范围 | 内容 | 为什么不跟 |
 |---|---|---|
+| `96a33f1`（2026-10-30） | 删 4 个「上游已下架」任务 + 整个夜猫子排程：`autoActions` 37→33 条、`scheduler` 任务族 6→5（`blackcat.go` 整个删）、配置三键 `blackcat_hours` / `blackcat_enabled` / `night_account_cap` 消失、`upstream` 删 `InNightWindow`/`BlackcatNeed`/`RunNightChats`/`DesktopDesignCanvasSequence` | 删除类，**待确认后再议**。收益已被 `046b1fd` 拿走（列表里没有的 code 直接 skipped、照样不打上游），本条只是清代码；而 `night_account_cap` 是「夜间只在积分 Top-N 号做真实对话」的人味化开关，与夜猫子绑定，一并删除属于能力减少。确认线上没开过夜猫子后可重新评估。 |
 
 ## 时间线（新→旧）
+
+### 2026-10-30 10:13 跟进上游 9 个提交（`v2026.10.29.2131` 之后），跳过删除类 1 条
+
+- 巡检：`main` 落后 14 个提交，`inspect.sh` 自动 ff `9232c89 → 5373578`（未产生提交）；
+  `local` @ `eaf09e7`，工作区干净，上游可达（8 heads）。
+- 回滚 tag：**`pre-sync-20261030-101335`**（= `eaf09e7`，`git reset --hard pre-sync-20261030-101335` 可整段退回）。
+- 搬入（`cherry-pick -x -n` + 重写为 `port:` 前缀，保留 `(cherry picked from commit …)` 溯源，**9 条全部零冲突**）：
+  - `8403247` port: fix: preserve routing policy and validate embedding responses ← `5ad7b35`
+  - `69e697e` port: feat(panel): 账号池支持「国内版 / 国际版」分类切换与标签自适应布局修复 ← `6cdc6fb`
+  - `2344e13` port: fix: isolate chat soft rate limits by model and normalize CN Kimi tools ← `e8eca81`
+  - `ea7ee7c` port: test(panel): 账号池渲染桩补 accRealmFilter/lastAccountsList ← `4850b45`
+  - `2ccfa0d` port: fix(embeddings): 6020/6021 改 429 + Retry-After，并与 chat 同口径带上等待时长 ← `6d595fa`
+  - `d737c78` port: fix(upstream): Kimi 工具兼容只展开 $ref，去掉按工具名硬编码裁剪 ← `854e74c`
+  - `bd2fd76` port: fix(server): 非流式「调用方断开」不再记成 502 upstream_parse，改记 499 ← `7d43b96`
+  - `329e8d0` port: fix(server): 号都在途占满时等一个名额，不再直接 503（issue #117）← `9f70e00`
+  - `211ad1c` port: fix(panel): 账号任务列表里没有的 code 不再白打上游（下架任务的空转）← `046b1fd`
+- 跳过：`96a33f1`（删 4 个下架任务 + 夜猫子排程）、`5373578`（依赖上一条的纯注释）。
+  3 个 PR merge（`a5e8e9c`/`22868bb`/`fd91f42`）内容分别等同 `5ad7b35`/`e8eca81`/`6cdc6fb`，不重复搬。
+- 收窄判定：**零收窄**。`5ad7b35` 在降级链加的两道护栏（`allowedModel` / `hiddenModel`）拦的是
+  「降级到白名单外或隐藏模型」，属修 bug；`e8eca81` 把普通 429 从整号冷却改为（账号+模型）冷却，
+  是放宽不是收窄；`854e74c` 去掉 `mcp__rea__` / `mcp__tencent_docs__` 前缀裁剪同样是放宽。
+- 校验：`go build ./...`、`go vet ./...` 通过；`go test ./...` **26 包全绿**（panel 31s / scheduler 22s / server 21s / updater 11s）；
+  面板路由 **54** / 服务端路由 **17** / `NormalizeAllowedModels` **12** / `autoActions` 条目 **37**（= 同步前，未随 `96a33f1` 减少）；
+  `git grep misakano7545` 仅命中 module 路径、import 与 `appRepository` / updater 仓库常量（后两者同步前既在，非本次引入）。
+- 残留差异：`git diff main..local -- '*.go' '*.js' '*.html'` 恰好等于 `96a33f1` 的文件集
+  （21 个代码文件，+565/−105），即「刻意保留的删除反面」，不多不少。
+- 未推远端：`origin/local` 尚停在 `eaf09e7`，需要时 `git push origin local`。
+- 待办（下次同步时一起做，避免在同步前弄脏工作区）：`.fork-sync-baseline` 是 **CRLF** 行尾，
+  `inspect.sh` 第 6 段用 `read -r` 读出的 `path` / 正则各带一个 `\r`，三项计数全部输出 `0`（假 0）；
+  本次靠手工 grep 核对（数值与基线一致）。修法二选一：`sed -i 's/\r$//' .fork-sync-baseline`，
+  或让脚本在 `read` 后剥掉 `\r`（更耐造，别人用 Windows 编辑器改这文件不会再中招）。
 
 ### 2026-10-29 15:41 服务器仓库规范化：`origin` 改指本 fork，日常同步只剩 `git pull`
 
