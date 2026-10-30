@@ -5,8 +5,11 @@ import (
 	"strings"
 )
 
-// prepareKimiTools normalizes tool schemas for the CN Kimi outbound path.
-// Other models retain their existing body, including its original bytes here.
+// prepareKimiTools 把 CN Kimi 出站请求里工具 schema 的本地 $ref 展开成内联定义
+// （Kimi 不接受 parameters 里的 $ref/#/$defs），其余模型、其余域原样返回字节。
+//
+// 只做 $ref 展开，**不裁剪任何工具**：本网关是通用中转，按工具名前缀裁剪是把某个
+// 部署的绕行手段写进了共享路径，其它用户的 MCP 工具会静默消失。
 func prepareKimiTools(body []byte, realm string) []byte {
 	if realmKey(realm) != "cn" {
 		return body
@@ -24,13 +27,6 @@ func prepareKimiTools(body []byte, realm string) []byte {
 	if json.Unmarshal(obj["tools"], &tools) != nil || len(tools) == 0 {
 		return body
 	}
-	// A forced function selection must still name a declared tool.
-	var choice struct {
-		Function struct {
-			Name string `json:"name"`
-		} `json:"function"`
-	}
-	_ = json.Unmarshal(obj["tool_choice"], &choice)
 	kept := make([]map[string]any, 0, len(tools))
 	budget := 10000
 	for _, tool := range tools {
@@ -38,10 +34,6 @@ func prepareKimiTools(body []byte, realm string) []byte {
 		if !ok {
 			// Preserve non-function tools rather than converting their protocol.
 			kept = append(kept, tool)
-			continue
-		}
-		name, _ := fn["name"].(string)
-		if name != choice.Function.Name && (strings.HasPrefix(name, "mcp__rea__") || strings.HasPrefix(name, "mcp__tencent_docs__")) {
 			continue
 		}
 		if params, ok := fn["parameters"].(map[string]any); ok {

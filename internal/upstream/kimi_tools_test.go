@@ -19,8 +19,8 @@ func TestKimiToolsCompatibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	tools := got["tools"].([]any)
-	if len(tools) != 1 {
-		t.Fatalf("tools=%v", tools)
+	if len(tools) != 3 {
+		t.Fatalf("tools=%v", tools) // 只展开 $ref，不裁剪任何工具
 	}
 	fn := tools[0].(map[string]any)["function"].(map[string]any)
 	if fn["strict"] != true {
@@ -58,8 +58,8 @@ func TestKimiToolsScopeAndForcedChoice(t *testing.T) {
 	body = strings.Replace(body, `"model":"kimi`, `"model":"cn:kimi`, 1)
 	var got map[string]any
 	_ = json.Unmarshal(prepareKimiTools([]byte(body), "cn"), &got)
-	if len(got["tools"].([]any)) != 2 {
-		t.Fatal("forced tool must remain declared")
+	if len(got["tools"].([]any)) != 3 {
+		t.Fatal("forced tool must remain declared") // 三个都该在：不裁剪
 	}
 }
 
@@ -85,7 +85,8 @@ func TestChatStreamKimiToolsOnWire(t *testing.T) {
 		t.Fatalf("status=%d err=%v", status, err)
 	}
 	rc.Close()
-	if strings.Contains(string(outbound), "$ref") || strings.Contains(string(outbound), "mcp__rea__") || !strings.Contains(string(outbound), `"name":"lookup"`) {
+	if strings.Contains(string(outbound), "$ref") || !strings.Contains(string(outbound), `"name":"lookup"`) ||
+		!strings.Contains(string(outbound), "mcp__rea__inspect") || !strings.Contains(string(outbound), "mcp__tencent_docs__read") {
 		t.Fatalf("bad wire body: %s", outbound)
 	}
 }
