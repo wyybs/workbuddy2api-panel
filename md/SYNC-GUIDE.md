@@ -23,12 +23,15 @@
 
 | 能力 | 基线值 | 怎么量 |
 |---|---|---|
-| 面板路由数 | 54 | `grep -rhoE 'HandleFunc\("' internal/panel \| wc -l` |
-| 服务端路由数 | 17 | `grep -rhoE 'HandleFunc\("' internal/server \| wc -l` |
+| 面板路由数 | 63 | `grep -rhoE 'HandleFunc\("' internal/panel \| wc -l` |
+| 服务端路由数 | 19 | `grep -rhoE 'HandleFunc\("' internal/server \| wc -l` |
 | 模型白名单逻辑 | 存在 `NormalizeAllowedModels` | `grep -rn NormalizeAllowedModels internal/livecfg` |
 | 账号池选号链路 | `pick.go` / `cooldown.go` / `plan.go` 均在 | `ls internal/pool` |
 
 数字变少 = 收窄 = 不跟，先问清楚再说。
+
+> 基线变更史：54 / 17（2026-10-29 起）→ **63 / 19**（2026-11-02，随上游 41 条提交跟入：
+> 代理池与按账号路由 +9 面板路由、Claude Code 计数端点 +2 服务端路由）。
 
 ## 3. 同步动作
 
@@ -54,7 +57,7 @@ git grep -n misakano7545 -- '*.go' 'go.mod'   # 只允许出现在 module 路径
 - [ ] `git status --porcelain` 为空
 - [ ] `go build ./...` 通过
 - [ ] `go test ./...` 通过（222 个测试文件，慢是正常的）
-- [ ] 路由计数回到 54 / 17
+- [ ] 路由计数回到 63 / 19
 - [ ] `go.mod` 的 module 路径仍是我们 fork 的（若上游改名需评估）
 - [ ] `md/SYNC-LOG.md` 已追加一条，含回滚 tag
 

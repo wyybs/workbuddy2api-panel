@@ -4,9 +4,43 @@
 
 | 上游提交 / 范围 | 内容 | 为什么不跟 |
 |---|---|---|
-| `96a33f1`（2026-10-30） | 删 4 个「上游已下架」任务 + 整个夜猫子排程：`autoActions` 37→33 条、`scheduler` 任务族 6→5（`blackcat.go` 整个删）、配置三键 `blackcat_hours` / `blackcat_enabled` / `night_account_cap` 消失、`upstream` 删 `InNightWindow`/`BlackcatNeed`/`RunNightChats`/`DesktopDesignCanvasSequence` | **不跟（已实证）**。`192.168.2.22` 生产启动日志 2026-10-30 10:32 明确输出「夜猫子已启用：[23] 点（23:00–08:00 窗口 glm-5.2 对话补足）」，即我们这台**正在用**夜猫子；`night_account_cap` 是「夜间只在积分 Top-N 号做真实对话」的人味化开关，与夜猫子绑定，一并删除属能力减少。另外「下架任务不再白打上游」的收益已由 `046b1fd` 拿走，本条只剩清代码。 |
+| `96a33f1`（2026-10-30） | 删 4 个「上游已下架」任务 + 整个夜猫子排程：`autoActions` 37→33 条、`scheduler` 任务族 6→5（`blackcat.go` 整个删）、配置三键 `blackcat_hours` / `blackcat_enabled` / `night_account_cap` 消失、`upstream` 删 `InNightWindow`/`BlackcatNeed`/`RunNightChats`/`DesktopDesignCanvasSequence` | ~~不跟~~ → **2026-11-02 改判：已跟入**。原判定依据是我们这台在生产用夜猫子（启动日志「夜猫子已启用：[23] 点」）。2026-11-02 复核实证推翻了这个依据：① `data/task-logs.json` 里 `black_cat` / `Model_chat_GLM5.2` / `Buddy_App_QQ` / `create_canvas` 只在 10-29 出现且**全部 `status=skipped`（该账号没有此任务）**，10-30 之后一次都没有；② 排程 23:00 连续三夜（10-30 / 10-31 / 11-01）**零日志**，说明 `BlackcatNeed` 恒 ≤0，夜猫子每夜只是白打一次上游查询；③ `data/credit-history.json` 里 `black_cat` / `night` / `夜猫子` 出现 **0 次**，从未产过积分。即「已启用」只代表开关开着，实际无任务可做。详见 2026-11-02 条目。 |
 
 ## 时间线（新→旧）
+
+### 2026-11-02 10:50 跟入上游 43 个提交，并改判 `96a33f1`（删夜猫子）跟入
+
+- 巡检：上游新增 3 个 tag（`v2026.10.30.1049` / `v2026.10.31.845` / `v2026.11.1.905`），
+  `inspect.sh` 自动 ff `main` → **`8903487`**（快进前落后 43 个提交）；`local` @ `4b5f304`，工作区干净。
+- 回滚 tag：**`pre-sync-20261102-104803`**（= `4b5f304`，`git reset --hard pre-sync-20261102-104803` 可整段退回）。
+- 搬入 **45 个 port 提交**（`cherry-pick -n` + 重写为 `port:` 前缀，保留 `(cherry picked from commit …)` 溯源）：
+  - 上游 43 条里跟 43 条、跳过 0 条（原先圈定跳过的 `cbc8aaa` / `5caddab` 两条「文案收尾」在删掉夜猫子后
+    反而成了必须补的收尾，一并跟入，见下）；
+  - `96a33f1` 改判跟入（依据见本节末尾「改判实证」）；
+  - 1 条本地收尾（`4c6ba8c`）：`autotask.go` 跳过逻辑的注释还挂着已删任务名，直接取上游版。
+- 冲突处理（共 4 处，全部手解）：
+  - `2d23068`：`cmd/server/main.go` 与 `internal/scheduler/scheduler.go` —— 上游删 `BlackcatDisabled` 又加
+    `WebActivityDisabled`，此步**两个都留**（夜猫子当时还在）。
+  - `96a33f1`：同两处反向 —— **取上游**：删 `BlackcatDisabled`，保留 `WebActivityDisabled`。
+  - `b2df95d` 零冲突：发版条件由「`v*` 标签 或 workflow_dispatch」收紧为**只认 `v*` 标签**，
+    与 AGENTS.md「工作流看到 v* 才创建 Release」一致，直接接受。
+- 校验：`go build ./...` / `go vet ./...` 通过；`go test ./...` **27 包全绿、0 FAIL**；
+  面板路由 **63** / 服务端路由 **19**（= 上游同值，随 `56bef12` + `2d23068` + `8903487` 增长，非收窄）；
+  `NormalizeAllowedModels` 12；`autoActions` 条目 37→33（随 `96a33f1`）。
+- 代码层残差：`git diff main..local -- '*.go' '*.js' '*.html' 'go.mod' 'go.sum'` 只剩 **4 个文件**
+  （`internal/updater/{updater.go,updater_test.go}`、`internal/panel/{app.js,update_test.go}`），
+  即我们自己的 `110d0e6` 修「发现新版本」误报那一条（`local_build`）。**除这一条外与上游完全对齐**，
+  以后再同步的冲突面基本归零。
+- 改判实证（推翻 10-30 的不跟理由）：
+  - 生产 `config.json`：`blackcat_enabled=true`、`blackcat_hours=[23]`、`night_account_cap=0`，开关确实开着；
+  - 但 `data/task-logs.json` 里 `black_cat` / `Model_chat_GLM5.2` / `Buddy_App_QQ` / `create_canvas`
+    只在 **10-29** 出现，且 3 次全是 `status=skipped`（「该账号没有此任务」），10-30 之后零出现；
+  - 排程 23:00 连续三夜（10-30 / 10-31 / 11-01）**零日志** → `BlackcatNeed` 恒 ≤0，夜猫子每夜只白打查询；
+  - `data/credit-history.json` 中 `black_cat` / `night` / `夜猫子` **0 次**——从未产出积分；
+  - 结论：「已启用」只说明开关开着，任务已从上游下架，代码是死重量；且夜猫子是「整任务都是真实模型对话」，
+    深夜全池同 IP 齐做真实对话本身是最好认的机器人形状，删掉反而降低指纹风险。
+- 未推远端、未部署：`origin/local` 仍停在 `4b5f304`；生产仍跑 `110d0e6` 那版镜像（`pre-20261030-1040` 之后无新镜像）。
+  需要时：`git push origin local` + 走 README.local.md §5 部署流程（先 `docker tag …:pre-<时间>`）。
 
 ### 2026-10-30 10:48 修「发现新版本」误报并重新部署
 
