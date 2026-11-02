@@ -42,6 +42,8 @@ docs/
 # 同步契约与同步日志
 !md/SYNC-GUIDE.md
 !md/SYNC-LOG.md
+# AGENTS 之外唯一要进库的 md：装进 CI Hermes 的技能（AutoBot 写 PR 正文时读它）
+!.github/autobot-skills/**/*.md
 
 # Windows binaries
 /wb2api.exe
