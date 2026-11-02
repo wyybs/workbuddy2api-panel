@@ -1532,10 +1532,9 @@ func (p *Panel) runAutoAllObserved(ctx context.Context, a *auth.Auth, observe fu
 		if ctx.Err() != nil {
 			break
 		}
-		// 本账号没有这个任务就跳过：不 accept、不跑动作、不 report。
-		// 线上 26 个 CN 号 × Model_chat_GLM5.2/Buddy_App_QQ/create_canvas/black_cat
-		// 每轮全部 "该账号没有此任务"，等于每轮白打 104 次上游调用（还会撞软限流）。
-		// 结果行照旧输出 skipped，面板/job 视图与以前一致。
+		// 本账号没有这个任务就跳过：不 accept、不跑动作、不 report。上游下架或调走
+		// 某任务后，account 列表里消失、autoActions 还在，此前每轮为它白打一次上游
+		// 调用（26 个号 × 每个下架任务，还会撞软限流）。结果行照旧是 skipped。
 		if have != nil && !have[act.TaskCode] {
 			result := map[string]any{"task_code": act.TaskCode, "status": "skipped", "message": "该账号没有此任务"}
 			out = append(out, result)
