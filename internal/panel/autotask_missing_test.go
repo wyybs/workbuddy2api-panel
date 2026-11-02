@@ -88,17 +88,17 @@ func TestRunAutoAllSkipsCodesAccountDoesNotHave(t *testing.T) {
 
 	var sawSkipped bool
 	for _, r := range res {
-		if r["task_code"] == "create_canvas" {
+		if r["task_code"] == "template_5" {
 			sawSkipped = r["status"] == "skipped" && r["message"] == "该账号没有此任务"
 		}
 	}
 	if !sawSkipped {
-		t.Errorf("create_canvas 应输出 skipped 行，实际结果 %+v", res)
+		t.Errorf("template_5 应输出 skipped 行，实际结果 %+v", res)
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	for _, req := range f.seen {
-		if strings.Contains(req, "create_canvas") {
+		if strings.Contains(req, "template_5") {
 			t.Fatalf("不该为账号没有的任务打上游: %s", req)
 		}
 	}
