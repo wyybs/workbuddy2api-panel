@@ -8,6 +8,29 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-02 11:20 补跟上 4 条（代理池 TLS 隧道修复）+ 二次部署
+
+- 触发：上一轮同步完成后 6 分钟，上游又推 6 条（`8903487 → abca6fc`）。其中 `673a446` 直接修刚上线的
+  代理池：SOCKS 分支下 https 请求**整条不经代理、从本机 IP 出网**，HTTP/HTTPS 代理下**指纹与头顺序全部失效**
+  （代理池 Transport 克隆自 `upstream.New()` 时连直连的 `DialTLSContext` 一起继承）。属必须跟。
+- 回滚 tag：**`pre-sync-20261102-111337`**（= `09fc5f8`）。
+- 搬入 4 条（`f909de7` / `410398f` 两条 PR merge 内容分别等同 `673a446` / `76727b8`，不重复搬）：
+  - `673a446` port: fix(proxypool): 经代理的 HTTPS 先建隧道再走指纹握手（#135）
+  - `76727b8` port: fix(panel): 按域降级键命中与锁池表「已路由至」标注
+  - `bbf2bb9` port: feat(autobot): 给 CI 的 Hermes 装上 humanize 技能
+  - `abca6fc` port: fix(autobot): 分析阶段也带 GH_TOKEN
+- 冲突 1 处：`bbf2bb9` 的 `.gitignore` —— 上游加 `!.github/autobot-skills/**/*.md`，我们本地有
+  `!README.local.md` + `!md/SYNC-*.md`，**两边都留**。
+- 校验：build / vet 通过；`go test ./...` 27 包全绿；`internal/proxypool` 含新增
+  `tlsover_test.go`（173 行 TLS-over-proxy 用例）通过；代码层与上游差异仍是那 4 个文件的更新误报修复。
+- 部署：`origin/local` `09fc5f8..575fc40` 推送；服务器 `git fetch` 首次无输出（GitHub 抖动），
+  重跑即通（未用 bundle）；镜像回滚点 **`pre-20261102-1115`**；
+  `docker compose up -d --build` → `Up (healthy)`，`RestartCount=0`，
+  `/healthz` `{"healthy":2,...}`、`/panel/` 200、`WARN|ERROR` 0 条；
+  curl 真实对话 `cn:fast-model` 返回 `content:"OK"`，近 5 分钟 3 条请求全 `out=success`、非 200 零条。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261102-1115 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或 `git reset --hard pre-sync-20261102-111337` 后重建。
+
 ### 2026-11-02 10:50 跟入上游 43 个提交，并改判 `96a33f1`（删夜猫子）跟入
 
 - 巡检：上游新增 3 个 tag（`v2026.10.30.1049` / `v2026.10.31.845` / `v2026.11.1.905`），
