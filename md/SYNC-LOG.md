@@ -39,8 +39,27 @@
   - `data/credit-history.json` 中 `black_cat` / `night` / `夜猫子` **0 次**——从未产出积分；
   - 结论：「已启用」只说明开关开着，任务已从上游下架，代码是死重量；且夜猫子是「整任务都是真实模型对话」，
     深夜全池同 IP 齐做真实对话本身是最好认的机器人形状，删掉反而降低指纹风险。
-- 未推远端、未部署：`origin/local` 仍停在 `4b5f304`；生产仍跑 `110d0e6` 那版镜像（`pre-20261030-1040` 之后无新镜像）。
-  需要时：`git push origin local` + 走 README.local.md §5 部署流程（先 `docker tag …:pre-<时间>`）。
+- 推送与部署：`origin/local` `4b5f304..a6ae90b` 已推；生产已上线（见下一条 11:05 记录）。
+
+### 2026-11-02 11:05 部署到 192.168.2.22（43 提交 + 删夜猫子上线）
+
+- 服务器 `/home/appsrv/workbuddy2api-panel`：`4b5f304 → a6ae90b`（`git pull --ff-only`，本次 GitHub 拉取未失败，
+  没走 bundle 通道）。
+- 镜像回滚点：`workbuddy2api-panel-wb2api:pre-20261102-1101`（上一版 `:pre-20261030-1040` 仍在）。
+- 重建：`docker compose up -d --build` → 容器 `workbuddy2api` Recreated / Started，`Up (healthy)`，**RestartCount=0**。
+- 验证：
+  - `/healthz` → `{"healthy":2,"realm_servable":{"cn":true,"global":false},"service":"workbuddy2api","total":2}`；`/panel/` HTTP 200。
+  - 启动日志出现 **`[upstream] TLS 指纹复刻已启用（JA3 71dc8c533dd919ae9f4963224a4ba8fd / JA4 t13d0a1200_5d04281c6031_b76c5ee2507d）`**，
+    即 JA3+JA4、头顺序、Connection 头这组对齐真正生效；`夜猫子已启用` 那行**已消失**，排程只剩签到 / 旅行 / 活跃 / 保活 / 成长 + 补领清扫。
+  - `WARN|ERROR` **0 条**；运行 5 分钟内 **7 条请求全部 200、全 `out=success`**，非 200 零条。
+  - 其中 `#004 | cn:fast-model | sync | 200 | tok=1 | total=1.9s | out=success` 是我们主动用 curl 打的一次真实对话，
+    走的就是新的 TLS 指纹客户端，端到端通；其余 6 条是 `src=192.168.2.127` 的正常客户端流量。
+  - 面板 `app.js`：`代理池` 命中 2、`请求上下文` 命中 2、`realm 级默认出口（issue #39）` 在；`夜猫子` / `blackcat` **命中 0**。
+  - 数据恢复：44 个用量桶 / 333 条积分流水 / 3 个余额基线，未见异常。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261102-1101 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard 4b5f304` 后重建。
+- 注意：生产 `config.json` 里 `blackcat_enabled` / `blackcat_hours` / `night_account_cap` 三个键仍留着，
+  JSON 未知名会被忽略，面板保存一次配置即自动清掉；不影响运行。
 
 ### 2026-10-30 10:48 修「发现新版本」误报并重新部署
 
