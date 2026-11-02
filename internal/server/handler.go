@@ -23,6 +23,7 @@ import (
 	"github.com/misakano7545/workbuddy2api-panel/internal/logfmt"
 	"github.com/misakano7545/workbuddy2api-panel/internal/pool"
 	"github.com/misakano7545/workbuddy2api-panel/internal/prompt"
+	"github.com/misakano7545/workbuddy2api-panel/internal/proxypool"
 	"github.com/misakano7545/workbuddy2api-panel/internal/reqlog"
 	"github.com/misakano7545/workbuddy2api-panel/internal/session"
 	"github.com/misakano7545/workbuddy2api-panel/internal/upstream"
@@ -1279,6 +1280,9 @@ func (h *Handler) chatCompletions(w http.ResponseWriter, r *http.Request) {
 						logfmt.Label(acct.UID, acct.Nickname))
 				} else {
 					lastErr = err
+					if proxypool.IsError(err) {
+						break
+					}
 					if errors.As(err, &ue) && ue.Kind == upstream.ErrSessionDead {
 						h.cfg.Pool.Disable(acct.UID, "refresh session dead")
 					} else {
@@ -1318,6 +1322,9 @@ func (h *Handler) chatCompletions(w http.ResponseWriter, r *http.Request) {
 			recordAttempt(acct.UID, pool.TokenUsageDelta{}, 0, false, attemptStarted, 0)
 			st.status = http.StatusServiceUnavailable
 			lastErr = terr
+			if proxypool.IsError(terr) {
+				break
+			}
 			// 客户端已断连（人走了）例外：传输错误是断连的**结果**，不是这个号的
 			// 错——喂连败会把每次断连都记到当时被选中的号上，几次之后整池逐个被
 			// 降权、且边降边被后续重试刷新，表现为「账号永远解不了封」；换号也只是
@@ -1951,6 +1958,10 @@ func (h *Handler) chatCompletions(w http.ResponseWriter, r *http.Request) {
 			hint += "; upstream: " + s
 		}
 		status = http.StatusBadRequest
+	}
+	if proxypool.IsError(lastErr) {
+		status, code, msg, hint = http.StatusServiceUnavailable, "proxy_unavailable", lastErr.Error(), ""
+		retryAfterSec, quotaCode, quota = 0, 0, false
 	}
 	if retryAfterSec > 0 {
 		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSec))
