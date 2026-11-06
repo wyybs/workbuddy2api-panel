@@ -58,8 +58,36 @@
 - `misakano7545` 检查：命中仅 module 路径、import、测试夹具，以及 `cmd/server/main.go`
   与 `internal/updater/updater.go` 的默认 `appRepository`（上游默认值，历史既有，未本次引入）。
 - 新端点的鉴权已核对：`POST /mcp`、三条 videos 路由全部走 `withAuth`，`GET /mcp` 直接 405，无未鉴权入口。
-- 待办：`origin/local` 尚未推送；生产未部署。部署前建议先确认 `config.json` 的
-  `features.watermark_strip_enabled` 保持 `false`（默认关），并留意视频端点会真实消耗账号积分。
+- 推送：`origin/local` `5bca715..3bfdd2c`（含 39 个 port 提交 + 1 个 local 日志提交）。
+
+### 2026-11-06 11:07 部署到 192.168.2.22（38 提交 + 视频/MCP 上线）
+
+- 服务器 `/home/appsrv/workbuddy2api-panel`：`5bca715 → 3bfdd2c`（`git fetch origin local` +
+  `git merge --ff-only`，未走 bundle；mihomo 代理在位，GitHub 拉取一次成功）。
+- 镜像回滚点：**`workbuddy2api-panel-wb2api:pre-20261106-1108`**（上一版 `:pre-20261102-1115` 仍在）。
+- 重建：`docker compose up -d --build` → 容器 Recreated / Started，**`Up (healthy)`，`RestartCount=0`**。
+- 部署前基线（对照用）：`/healthz` `{"healthy":4,...}`、`/panel/` 200、RestartCount 0、
+  日志有 `WARN: [continue] 段无 finish 结束（疑似上游断流，按截断终态降级）` 一条。
+- 部署后验证：
+  - `/healthz` → `{"healthy":4,"realm_servable":{"cn":true,"global":false},"total":4}`；`/panel/` **200**；
+    `WARN|ERROR` **0 条**；启动恢复 132 个用量桶 / 656 条积分流水 / 4 个账号全部在线。
+  - 启动日志 **`[upstream] TLS 指纹复刻已启用（JA3 71dc8c533dd919ae9f4963224a4ba8fd / JA4 t13d0a1200_5d04281c6031_b76c5ee2507d）`**
+    在；`夜猫子` 命中 **0**（删净）。
+  - 真实流量：#001–#005 全 `200 / out=success`，**非 200 零条**（`src=192.168.2.127` 正常客户端）。
+  - **新端点实测**：`POST /mcp` 无 key → **401**（鉴权包住）；带 key `initialize` 正常握手并返回
+    `tools` capability + 中文 instructions；`tools/list` → `list_generation_models` / `generate_image` /
+    `edit_image` / `generate_video` / `get_video_task` 五个工具；`GET /mcp` → **405**；
+    `POST /v1/images/strip-watermark` → **403 `watermark_strip_disabled`**（默认关，符合设计）；
+    `/v1/models` 里 `video_generation:true` **2 个**（视频模型已进目录）。
+  - 版本：`/panel/api/update` → `{"current_version":"dev","current_known":false,
+    "latest_version":"2026.11.5.2306",...}` —— **`current_known:false` 说明 `2bf4587` 生效**，
+    dev 构建不再声称「发现新版本」，只报查到的最新 release。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261106-1108 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或代码侧 `git reset --hard pre-sync-20261106-105300` 后重建。
+- 待观察：① 视频端点与 `generate_video` 会真实扣积分，注意 `data/credit-history.json` 消耗速率；
+  ② `WARN: [continue] 段无 finish 结束` 这类日志在本轮 `b08e606` / `a8be846` / `66e5344` 之后
+  是否消失（部署后 0 条，需更长时间观察）；③ 面板仍显示 `dev`，如需真实版本号在 22 的 `.env`
+  写 `APP_VERSION=2026.11.6.1053` 再重建。
 
 ### 2026-11-02 11:20 补跟上 4 条（代理池 TLS 隧道修复）+ 二次部署
 
