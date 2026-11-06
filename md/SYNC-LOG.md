@@ -5,8 +5,61 @@
 | 上游提交 / 范围 | 内容 | 为什么不跟 |
 |---|---|---|
 | `96a33f1`（2026-10-30） | 删 4 个「上游已下架」任务 + 整个夜猫子排程：`autoActions` 37→33 条、`scheduler` 任务族 6→5（`blackcat.go` 整个删）、配置三键 `blackcat_hours` / `blackcat_enabled` / `night_account_cap` 消失、`upstream` 删 `InNightWindow`/`BlackcatNeed`/`RunNightChats`/`DesktopDesignCanvasSequence` | ~~不跟~~ → **2026-11-02 改判：已跟入**。原判定依据是我们这台在生产用夜猫子（启动日志「夜猫子已启用：[23] 点」）。2026-11-02 复核实证推翻了这个依据：① `data/task-logs.json` 里 `black_cat` / `Model_chat_GLM5.2` / `Buddy_App_QQ` / `create_canvas` 只在 10-29 出现且**全部 `status=skipped`（该账号没有此任务）**，10-30 之后一次都没有；② 排程 23:00 连续三夜（10-30 / 10-31 / 11-01）**零日志**，说明 `BlackcatNeed` 恒 ≤0，夜猫子每夜只是白打一次上游查询；③ `data/credit-history.json` 里 `black_cat` / `night` / `夜猫子` 出现 **0 次**，从未产过积分。即「已启用」只代表开关开着，实际无任务可做。详见 2026-11-02 条目。 |
+| `6724698`（2026-11-03） | `docker-compose.yml` 默认改用 `ghcr.io/misakano7545/workbuddy2api-panel:latest` 预编译镜像，把 `build:` 段整段注释掉，只留「源码构建」注释块 | **不跟**。① 直接在 compose 里**写死上游地址**，命中本仓库的 `HARDCODE_PATTERN=misakano7545` 校验项；② 我们生产是自建镜像 + `docker compose up -d --build`（`APP_VERSION` 由 `.env` 注入），跟了等于把生产切到上游镜像，构建流程与回滚链（`docker tag :pre-<时间>`）同时失效；③ 上游改这条的动机是「自建镜像 appVersion 回落 dev → updater 误报」，该问题我们已用上游 `2bf4587`（`current_known`）解决，不需要换镜像。**若将来想用预编译镜像**：本 fork 自己的 `docker-ghcr.yml` 会发 `ghcr.io/wyybs/workbuddy2api-panel`（`${{ github.repository }}` 自动取 fork 名），应当改指自己的镜像并配 GHCR 认证，而不是指上游。 |
+| `fdcbdc7`（2026-11-03） | `Dockerfile` 把 `GOPROXY` 改成 `ARG`，**默认值设为官方源** `https://proxy.golang.org,direct`，并删掉首行 `# syntax=docker/dockerfile:1` | **不跟（已等价实现）**。本地 Dockerfile 早就用 `ARG GOPROXY`，默认值反而是 `https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,direct`（境内构建不卡十几分钟）。上游默认值方向与我们相反，搬过来会拖慢/挂住 22 上的构建。`# syntax` 那行的删除属可选微优化（少一次 frontend 拉取），不影响构建正确性，暂留。 |
 
 ## 时间线（新→旧）
+
+### 2026-11-06 10:53 跟入上游 38 个提交（视频 + MCP + 水印裁切），退役本地 updater 补丁
+
+- 巡检：上次同步点 `abca6fc`（11-02 11:20），本次 `inspect.sh` 自动 ff `main` → **`dab1b08`**
+  （上游最新 tag `v2026.11.5.2306`），`local` @ `5bca715`，工作区干净。新提交 40 条（无 merge），
+  83 个代码文件，上游净增约 8400 行。
+- 收窄判定：**零收窄**。路由集合差集实测——上游新增 10 条、**本地独有 0 条**：
+  `POST/GET /mcp`、`POST /v1/videos`、`/v1/videos/generations`、`/v1/videos/tasks`、
+  `GET /v1/videos/{task_id}`、`GET /v1/videos/{task_id}/content`、`POST /v1/images/strip-watermark`、
+  `POST /panel/api/accounts/{uid}/group`、`POST /panel/api/request_logs/clear`。
+  （`inspect.sh` 报的 65/27 vs 63/19 是含测试文件重复注册的出现次数，不是净增；已在 GUIDE §2 补口径说明。）
+- 回滚 tag：**`pre-sync-20261106-105300`**（= `5bca715`，`git reset --hard pre-sync-20261106-105300` 可整段退回）。
+- 搬入 **38 条 port 提交 + 1 条收尾**（`git cherry-pick -x` 逐条，重写为 `port:` 前缀，保留溯源行）：
+  - 修复 25 条：`24b8f39`（默认档位误落 off 关思考）、`02b941e`（流式连接无法复用）、
+    `5866d6f`（#149 成长任务 24 次列表查询撞 429）、`a8be846` / `66e5344`（客户端断开归类）、
+    `b08e606`（心跳帧吞 Responses 事件）、`2af7de6`、`8d48ee5`（#150 代理全停回落直连）、
+    `8f761c1` / `e65f786`（reqlog）、`6d534c5`（#155 幽灵账号）、`77d4762`、`526e959`、
+    `6ddbaf8` / `f6c4a45`（企业版 / 签到判据）、`f595ed1` / `5169381`（水印裁切）、
+    AutoBot 6 条（`9a122b6` / `edcfdf8` / `ac22925` / `d8cb1db` 等）
+  - 新能力 9 条：`5fba8aa`（出视频端点 + MCP 端点，5 个工具）、`8a86156`（可选水印裁切，**默认关闭**）、
+    `6df19e5`（OpenAI 资源形状 / `b64_json`）、`dab1b08`（托管 `image_generation` 工具）、
+    `f75b91c`（国际版出片）、`e6dd088`（账号分组 + 事件日志清空）、`7be4c3b`（#147 保留积分按域）、
+    `dd01a52`（tools 描述脱敏 + 轮询指纹跳过）、视频台账 4 条（`b119835` / `51d8173` / `fbb01f7` / `aa9d58d`）
+  - 测试 2 条：`e5afc3f` / `d596fa7`；chore 2 条：`40d98f9`（删 404 上游仓）、`e1436d1`（AutoBot 停每日定时）
+- **剥离 2 条**（判定见「已判定不跟」表）：`6724698`（compose 默认 GHCR 上游镜像）、
+  `fdcbdc7`（Dockerfile GOPROXY 默认官方源）。
+- **本地补丁退役**：`110d0e6`（`local_build` 字段修「本地构建误报有新版本」）被上游 `2bf4587`
+  （`current_known` 字段，同逻辑但测试覆盖更全）取代。冲突时四个文件（`internal/updater/updater.go`、
+  `updater_test.go`、`internal/panel/update_test.go`、`app.js`）整体取上游版；
+  `git grep local_build/LocalBuild` 已零残留。**注意前端文案随之变成上游措辞**，
+  原先那句「本地构建（未注入版本号）· 跳过版本检查」不再存在。
+- 冲突处理共 2 处：
+  1. `2bf4587`：4 个文件如上，取上游（theirs）。
+  2. **merge 节点整合内容缺失**：`24b8f39` 走 PR 分支合并，其 `app.js` 侧 41 行
+     （`CFG_MAP` 的 `thinking_default_effort` 条目、`loadConfig` 回填后与下拉 change 时调
+     `refreshEffortDowngradeNote`、以及该函数本体）**只存在于 merge 节点**，`2bf4587` 单提交的树里没有。
+     直接 pick 单提交后 `TestConfigFormMatchesCFGMap` 报「`thinking_default_effort` 在 CFG_MAP 里没有条目
+     （保存时会被静默丢弃）」。收尾提交 `d799009` 按 `main` 的 `app.js` 补齐。
+     **教训：上游有 merge 提交时，被合并分支的单提交树可能不含主线文件的最新状态，pick 后必须跑全量测试。**
+- 校验：`go build ./...` / `go vet ./...` 通过；`go test ./...` **27 包全绿、0 FAIL**（含新包
+  `internal/media`）；面板路由 **65** / 服务端路由 **27**（= 上游同值）；`NormalizeAllowedModels` 12；
+  `git status --porcelain` 空；`go.mod` module 路径未变。
+- **代码层残差**：`git diff main..local -- '*.go' '*.js' '*.html' 'go.mod' 'go.sum' '*.yml' '*.json'`
+  只剩 `Dockerfile` + `docker-compose.yml` 两个文件——即上面刻意剥离的两条，
+  **除这两条外与上游完全对齐**。其余全量残差均为本地独有文件
+  （`.fork-sync.*`、`README.local.md`、`README.md` 顶部标注、`md/SYNC-*`、`sync-upstream.cmd.disabled`）。
+- `misakano7545` 检查：命中仅 module 路径、import、测试夹具，以及 `cmd/server/main.go`
+  与 `internal/updater/updater.go` 的默认 `appRepository`（上游默认值，历史既有，未本次引入）。
+- 新端点的鉴权已核对：`POST /mcp`、三条 videos 路由全部走 `withAuth`，`GET /mcp` 直接 405，无未鉴权入口。
+- 待办：`origin/local` 尚未推送；生产未部署。部署前建议先确认 `config.json` 的
+  `features.watermark_strip_enabled` 保持 `false`（默认关），并留意视频端点会真实消耗账号积分。
 
 ### 2026-11-02 11:20 补跟上 4 条（代理池 TLS 隧道修复）+ 二次部署
 

@@ -23,15 +23,22 @@
 
 | 能力 | 基线值 | 怎么量 |
 |---|---|---|
-| 面板路由数 | 63 | `grep -rhoE 'HandleFunc\("' internal/panel \| wc -l` |
-| 服务端路由数 | 19 | `grep -rhoE 'HandleFunc\("' internal/server \| wc -l` |
+| 面板路由数 | 65 | `grep -rhoE 'HandleFunc\("' internal/panel \| wc -l` |
+| 服务端路由数 | 27 | `grep -rhoE 'HandleFunc\("' internal/server \| wc -l` |
 | 模型白名单逻辑 | 存在 `NormalizeAllowedModels` | `grep -rn NormalizeAllowedModels internal/livecfg` |
 | 账号池选号链路 | `pick.go` / `cooldown.go` / `plan.go` 均在 | `ls internal/pool` |
 
 数字变少 = 收窄 = 不跟，先问清楚再说。
 
 > 基线变更史：54 / 17（2026-10-29 起）→ **63 / 19**（2026-11-02，随上游 41 条提交跟入：
-> 代理池与按账号路由 +9 面板路由、Claude Code 计数端点 +2 服务端路由）。
+> 代理池与按账号路由 +9 面板路由、Claude Code 计数端点 +2 服务端路由）
+> → **65 / 27**（2026-11-06，随上游 40 条提交跟入：账号分组 / 事件日志清空 +2 面板路由，
+> 视频端点 + MCP + 水印裁切 +8 服务端路由）。
+>
+> ⚠️ 计数口径是**出现次数**（含测试文件里的 httptest mux），不能单看数字判收窄。
+> 判「有没有被砍能力」用路由集合差集：
+> `comm -23 <(git grep -hoE 'HandleFunc\("[^"]+"' local -- internal/panel internal/server | sort -u) <(git grep -hoE 'HandleFunc\("[^"]+"' main -- internal/panel internal/server | sort -u)`
+> 输出为空 = 本地没有上游缺的路由，再用 `comm -13` 看新增。
 
 ## 3. 同步动作
 
