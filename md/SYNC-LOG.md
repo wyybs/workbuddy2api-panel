@@ -10,6 +10,52 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-09 10:25 跟入上游 57 个提交（长文续接 / 输出预算 / 号池自救 / 面板 reqlog 区分），零收窄
+
+- 巡检：上次同步点 `dab1b08`（11-06 10:53），本次 `inspect.sh` 自动 ff `main` → **`24d0b61`**
+  （最新 tag `v2026.11.9.827`），`local` @ `9386585`，工作区干净。新提交 **57 条**（48 单提交 + 9 merge），
+  110 文件，+8968 / −328。
+- 收窄判定：**零收窄**。路由集合双向差集为空（`comm -3` 无输出）、无删除文件、无新增写死
+  `misakano7545` 的地址。面板路由 65 / 服务端路由 27 / `NormalizeAllowedModels` 12，与上游同值。
+- 回滚 tag：**`pre-sync-20261109-101507`**（= `9386585`，`git reset --hard` 可整段退回）。
+- 搬入 **48 条 `port:` 提交，零冲突**：
+  - 长文续接与输出预算 8 条：`2b9b773`（输出预算下限）、`e54c6e0`（救援段继承下限）、`34a3ae6`（length 处续接）、
+    `29db878`（闸门从「最多 3 段」改成累计上限）、`562d0d8`（思考吃光也续写）、`6e7fe62`（客户端 ≥32k 直接续接）、
+    `84a48d9`（断流补截断终态）、`07f8ae0`（思考完直接收尾时救援，空回复不再 502）
+  - 号池健康 3 条：`4830686`（11134 供应商过载不罚号、保会话粘性）、`f987bac`（11151 归请求级；
+    Kimi/GLM 补 reasoning 镜像）、`4fb7cb4`（盲盒消费 + 10105 活跃会话自救）
+  - 凭据与导入 5 条：`c7cc216`（新版桌面端 `$wbEncrypted` 自动解密）、`97d3f25`（回写只封读入时确实加密的字段）、
+    `e36ad07`（覆盖凭据前先求证新凭据还活着）、`585ae7f` / `cd88450`（cockpit 导入兼容嵌套/驼峰/字典形态）
+  - 面板与 reqlog 7 条：`6671b8d` / `efe64fd` / `b674f71`（`model_eff` 全链路区分降级前后模型）、
+    `4f37ffa` / `69248a6` / `1b3361a` / `f6335ce`（控件尺寸、配置页错位、筛选偏好、余额筛选器绑定）、
+    `e4e6f5c`（兜底 system 只写行为约定、不声明身份）
+  - 加固 3 条：`b494426`（入站体上限 64MiB + 11140 风控连坐保护）、`c6f953a`（慢上传可见性 + 在途名额回归）、
+    `81b806c`（成品直链只认产物域、不跟随重定向）
+  - 性能 3 条：`4b0a3b4`（请求体只解析一次）、`fe51fd6`（去掉 RE2 折叠，省 ~20ms CPU/请求）、
+    `89c9b7d`（流式按缓冲批量 flush）
+  - 诊断与脚本 4 条：`b42712c`（`WB2API_PPROF`，默认关）、`478d2aa`（抓「声明工具却只说一句」样本，默认关）、
+    `24d0b61`（`cache_audit.py`）、`7028676`（构建产物不入库）
+  - 其余 5 条：`ffca1da` / `1df3b83` / `877324f`（默认档统一到 high）、`d165e6e`（只发 `user_id` 也派生会话键）、
+    `771c887`（`<think:SUF>` 拆回 thinking 块）、`29d9879`（`/v1/search` 卡片改等价检索链接）、`7297824`（WARN body 200→512）、
+    `f0ca4d3` / `fa5d614`（image_generation 积分闸与断连语义）、AutoBot 4 条、`df988aa`（README Windows 常驻）
+- **9 个 merge 节点未单独搬**：逐条比对 `git diff <merge>^1 <merge>` 的文件清单后确认，48 条单提交已完整覆盖其内容
+  ——搬完 `git diff main..HEAD` 的代码层**只剩 `Dockerfile` + `docker-compose.yml`**（= 11-06 刻意剥离的两条）。
+  11-06 那次「merge 独有内容缺失」本次**没有复现**，但「pick 完跑全量测试」这条做法继续保留。
+- 剥离：**无新增**。`6724698`（compose 默认 GHCR 上游镜像）、`fdcbdc7`（Dockerfile GOPROXY 官方源）继续不跟。
+- 校验：
+  - `go build ./...` / `go vet ./...` 通过。
+  - `go test ./...`：**28 包 ok**；`internal/panel` 52 条、`internal/updater` 4 条失败，错误全是
+    `fork/exec …: Access is denied`——沙箱禁止 fork `node.exe` 与临时编出的 `test.test.exe`，不是代码问题。
+    **已用 worktree 对照上一 tag 证伪回归**：同步前该包 50 条失败 → 同步后 52 条，增量正是本次新增的 2 条 node 用例。
+  - 绕过沙箱直验前端：`node --check internal/panel/app.js` 通过。
+  - 路由 65 / 27、白名单 12、`git status --porcelain` 空、`go.mod` module 路径未变。
+  - `git grep misakano7545` 仅命中 module 路径、import、`appRepository` / updater 默认仓、测试夹具（历史既有，非本次引入）。
+- 文档修正：`SYNC-GUIDE.md` §4 清单里过期的 `63 / 19` → `65 / 27`、`222 个测试文件` → `282`，
+  并补了「沙箱里跑不了的用例怎么判回归」的说明。
+- **部署待办（本次未做）**：① 服务器 `data/config.json` 把 `restriction_hold_seconds` 从默认 1800 调到 **300**
+  ——我们只有 3 个号，15 分钟内 2 个号中 11140 就全池停 30 分钟；② `thinking.default_effort` 显式写 **high**
+  （上游实测 max 正文 1906 token vs high 3236）；③ 按老规矩先 `docker tag …:pre-<时间>` 再 `up -d --build`。
+
 ### 2026-11-06 10:53 跟入上游 38 个提交（视频 + MCP + 水印裁切），退役本地 updater 补丁
 
 - 巡检：上次同步点 `abca6fc`（11-02 11:20），本次 `inspect.sh` 自动 ff `main` → **`dab1b08`**

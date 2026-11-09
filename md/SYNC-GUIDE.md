@@ -63,10 +63,16 @@ git grep -n misakano7545 -- '*.go' 'go.mod'   # 只允许出现在 module 路径
 
 - [ ] `git status --porcelain` 为空
 - [ ] `go build ./...` 通过
-- [ ] `go test ./...` 通过（222 个测试文件，慢是正常的）
-- [ ] 路由计数回到 63 / 19
+- [ ] `go test ./...` 通过（282 个测试文件，慢是正常的）
+- [ ] 路由计数回到 65 / 27
 - [ ] `go.mod` 的 module 路径仍是我们 fork 的（若上游改名需评估）
 - [ ] `md/SYNC-LOG.md` 已追加一条，含回滚 tag
+
+> ⚠️ **哪些用例在 Agent 沙箱里跑不了**：`internal/panel` 里 52 条前端用例要 fork `node.exe`，
+> `internal/updater` 里 4 条集成用例要 fork 临时编出来的 `test.test.exe`。在 Agent 的 Bash/PowerShell
+> 里跑 `go test`，它们会全部报 `fork/exec …: Access is denied`——**这不是回归**（同一份代码在宿主
+> 终端里过）。判回归的硬办法：`git worktree add ../_check <上一个 pre-sync-tag>`，在那边跑同一个包，
+> 失败条数相同即环境问题。本次实测 panel 50（同步前）→ 52（同步后，新增 2 条 node 用例）。
 
 ## 5. 记录去哪看
 
