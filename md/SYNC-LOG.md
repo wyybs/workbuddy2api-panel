@@ -10,6 +10,23 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-09 10:40 部署到 192.168.2.22（57 条上线）
+
+- 服务器 `3bfdd2c → 68303fe`（`git pull --ff-only`，50 提交，无冲突）。首次 `git fetch` 撞
+  `gnutls_handshake() failed`，重试即通（mihomo Up 6 天、`curl github` 200，属 GnuTLS 偶发抖动）。
+- 镜像回滚点：**`workbuddy2api-panel-wb2api:pre-20261109-1038`**（= 旧 `cb87e90a60b0`）。
+- `config.json` 三处调整（备份 `config.json.bak-20261109-1038`）：`restriction_hold_seconds` **300**（默认 1800
+  会把 3 个号的池子在 2 个号中 11140 后整停 30 分钟）、`server.max_payload_bytes` 显式写 **67108864**、
+  `thinking.default_effort` **max → high**。改完 diff 只动这三行，JSON 复验合法。
+- 重建：`docker compose up -d --build` 1m27s → 容器 Recreated / Started → `running/healthy`。
+- 验证：`/healthz` → `{"healthy":5,"realm_servable":{"cn":true,"global":true},"total":5}`；`/panel/` 200；
+  `/v1/models` 200（0.24s）；真实对话 200（1.45s，返回「收到」）；近 5 分钟 `WARN|ERROR` **0 条**；
+  内存 14MiB；面板 `/panel/api/config` 回读确认三处配置已生效。
+- 新能力实证：日志打出 `[budget] max_tokens 64 -> 8192（effort=high 的输出预算下限……）`，
+  请求记录行带 `effort=high`、`cache=99%`。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261109-1038 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard 3bfdd2c` 后重建。
+
 ### 2026-11-09 10:25 跟入上游 57 个提交（长文续接 / 输出预算 / 号池自救 / 面板 reqlog 区分），零收窄
 
 - 巡检：上次同步点 `dab1b08`（11-06 10:53），本次 `inspect.sh` 自动 ff `main` → **`24d0b61`**
@@ -55,6 +72,7 @@
 - **部署待办（本次未做）**：① 服务器 `data/config.json` 把 `restriction_hold_seconds` 从默认 1800 调到 **300**
   ——我们只有 3 个号，15 分钟内 2 个号中 11140 就全池停 30 分钟；② `thinking.default_effort` 显式写 **high**
   （上游实测 max 正文 1906 token vs high 3236）；③ 按老规矩先 `docker tag …:pre-<时间>` 再 `up -d --build`。
+  → **已于 10:40 部署完成，见上一条**。
 
 ### 2026-11-06 10:53 跟入上游 38 个提交（视频 + MCP + 水印裁切），退役本地 updater 补丁
 
