@@ -57,6 +57,10 @@ git cherry-pick -x <upstream-sha>
 # 4. 校验
 go build ./... && go test ./...
 git grep -n misakano7545 -- '*.go' 'go.mod'   # 只允许出现在 module 路径与 import
+
+# 5. 推远端（两个分支都要推，少一个 fork 首页就会显示「上游没更新」）
+git push origin local
+git push origin main        # 纯镜像 ff，不产生提交
 ```
 
 ## 4. 校验清单（每次必跑）
@@ -67,6 +71,7 @@ git grep -n misakano7545 -- '*.go' 'go.mod'   # 只允许出现在 module 路径
 - [ ] 路由计数回到 65 / 27
 - [ ] `go.mod` 的 module 路径仍是我们 fork 的（若上游改名需评估）
 - [ ] `md/SYNC-LOG.md` 已追加一条，含回滚 tag
+- [ ] `origin/local` 与 `origin/main` 均已推送（`main` 只允许 ff；用 `git ls-remote` 复核，别看 fork 页面）
 
 > ⚠️ **哪些用例在 Agent 沙箱里跑不了**：`internal/panel` 里 52 条前端用例要 fork `node.exe`，
 > `internal/updater` 里 4 条集成用例要 fork 临时编出来的 `test.test.exe`。在 Agent 的 Bash/PowerShell
