@@ -10,6 +10,34 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-10 10:30 跟入上游 9 个提交（额度窗口探针 / 号池分区 / 选号策略 / 运行日志落盘），零收窄
+
+- 巡检：上次同步点 `24d0b61`（11-09 10:40 部署完），本次 `inspect.sh` 自动 ff `main` → **`592fb01`**
+  （tag `v2026.11.9.1131`），`local` @ `d910a60`，工作区干净。新提交 **9 条、零 merge**，68 文件 +5969/−949。
+- 收窄判定：**零收窄**。本地独有路由为空；上游新增两条面板路由 `GET /panel/api/logs/export`、
+  `POST /panel/api/accounts/{uid}/scope`。基线随之上移 **65 / 27 → 67 / 27**（服务端 27、白名单 12 不变）。
+- 回滚 tag：**`pre-sync-20261110-102404`**（= `d910a60`）。
+- 搬入 9 条 `port:` 提交，**零冲突**：
+  - 号池调度 3 条：`592fb01`（额度窗口探针 + 号池分区 + 代理订阅导入；`internal/pool` 新增
+    `scope.go` / `strategy.go` / `window.go` / `egress.go`）、`18a6776`（选号策略可配 + 运行日志落盘导出 +
+    上游劣化滑窗告警）、`bfdba51`（直连传输层失败记到出口，不再按轮转逐号记连败）
+  - 续写与工具轮 3 条：`c2003af`（正文停在预告句就收尾时续写）、`1037397`（工具轮「说一句就停」试续一次、
+    只采纳工具调用）、`44bc059`（工具调用缺函数名被丢弃时留 WARN）
+  - 面板与上游 2 条：`c5ce29b`（账号导入支持多文件、选中先预览再写入）、`d78131b`（资料接口空昵称不再静默成功）
+  - 诊断 1 条：`4bdbd60`（narration/toolonly 记录尾部片段与续写结果）
+- 新增配置键（默认值即采纳值）：`logging.panel_log_enabled=true` / `panel_log_retention_days=7` /
+  `panel_log_max_mb=50` / `request_archive_context=false`、`schedule.window_probe_enabled=true` /
+  `makeup_cards_per_round=0`、`pool.selection_strategy="weighted"` / `separate_text_media=false`。
+  **分区默认关、策略默认 weighted = 分区前的行为逐字不变**；探针只在「429 已登记重置时刻」到点发一次
+  `Hi` / 16 token，刻意不做按账号×模型扇出的配额扫描。
+- 校验：
+  - `go build ./...` / `go vet ./...` 通过。
+  - `go test ./...` **31 包全绿、0 FAIL**（panel 43.8s / server 26.4s / scheduler 23.5s / updater 12.0s）。
+    11-09 那批在沙箱里挂掉的 52 + 4 条子进程用例这次全部通过——同一台机器、同一批代码，差别只在沙箱策略，
+    已在 GUIDE §4 把这条说明改写为「先复跑再判断」。
+  - 路由 67 / 27、白名单 12、`git status --porcelain` 空、`go.mod` module 路径未变。
+  - `git grep misakano7545` 只剩 `go.mod` 的 module 路径。
+
 ### 2026-11-09 10:40 部署到 192.168.2.22（57 条上线）
 
 - 服务器 `3bfdd2c → 68303fe`（`git pull --ff-only`，50 提交，无冲突）。首次 `git fetch` 撞

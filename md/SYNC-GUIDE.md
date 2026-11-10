@@ -23,7 +23,7 @@
 
 | 能力 | 基线值 | 怎么量 |
 |---|---|---|
-| 面板路由数 | 65 | `grep -rhoE 'HandleFunc\("' internal/panel \| wc -l` |
+| 面板路由数 | 67 | `grep -rhoE 'HandleFunc\("' internal/panel \| wc -l` |
 | 服务端路由数 | 27 | `grep -rhoE 'HandleFunc\("' internal/server \| wc -l` |
 | 模型白名单逻辑 | 存在 `NormalizeAllowedModels` | `grep -rn NormalizeAllowedModels internal/livecfg` |
 | 账号池选号链路 | `pick.go` / `cooldown.go` / `plan.go` 均在 | `ls internal/pool` |
@@ -33,7 +33,9 @@
 > 基线变更史：54 / 17（2026-10-29 起）→ **63 / 19**（2026-11-02，随上游 41 条提交跟入：
 > 代理池与按账号路由 +9 面板路由、Claude Code 计数端点 +2 服务端路由）
 > → **65 / 27**（2026-11-06，随上游 40 条提交跟入：账号分组 / 事件日志清空 +2 面板路由，
-> 视频端点 + MCP + 水印裁切 +8 服务端路由）。
+> 视频端点 + MCP + 水印裁切 +8 服务端路由）
+> → **67 / 27**（2026-11-10，随上游 9 条提交跟入：`GET /panel/api/logs/export` +
+> `POST /panel/api/accounts/{uid}/scope`）。
 >
 > ⚠️ 计数口径是**出现次数**（含测试文件里的 httptest mux），不能单看数字判收窄。
 > 判「有没有被砍能力」用路由集合差集：
@@ -67,17 +69,18 @@ git push origin main        # 纯镜像 ff，不产生提交
 
 - [ ] `git status --porcelain` 为空
 - [ ] `go build ./...` 通过
-- [ ] `go test ./...` 通过（282 个测试文件，慢是正常的）
-- [ ] 路由计数回到 65 / 27
+- [ ] `go test ./...` 通过（336 个测试文件，慢是正常的）
+- [ ] 路由计数回到 67 / 27
 - [ ] `go.mod` 的 module 路径仍是我们 fork 的（若上游改名需评估）
 - [ ] `md/SYNC-LOG.md` 已追加一条，含回滚 tag
 - [ ] `origin/local` 与 `origin/main` 均已推送（`main` 只允许 ff；用 `git ls-remote` 复核，别看 fork 页面）
 
-> ⚠️ **哪些用例在 Agent 沙箱里跑不了**：`internal/panel` 里 52 条前端用例要 fork `node.exe`，
-> `internal/updater` 里 4 条集成用例要 fork 临时编出来的 `test.test.exe`。在 Agent 的 Bash/PowerShell
-> 里跑 `go test`，它们会全部报 `fork/exec …: Access is denied`——**这不是回归**（同一份代码在宿主
-> 终端里过）。判回归的硬办法：`git worktree add ../_check <上一个 pre-sync-tag>`，在那边跑同一个包，
-> 失败条数相同即环境问题。本次实测 panel 50（同步前）→ 52（同步后，新增 2 条 node 用例）。
+> ⚠️ **子进程用例与 Agent 沙箱**：`internal/panel` 的前端用例要 fork `node.exe`，`internal/updater`
+> 的集成用例要 fork 临时编出来的 `test.test.exe`。沙箱策略收紧时它们会整批报
+> `fork/exec …: Access is denied`——**那不是回归**。2026-11-09 实测 52 + 4 条全挂；2026-11-10 复测
+> **31 包全绿、0 FAIL**，同一台机器同一批代码，差别只在沙箱策略，所以**先复跑再判断**。
+> 真需要判回归时的硬办法：`git worktree add ../_check <上一个 pre-sync-tag>`，在那边跑同一个包，
+> 失败条数相同即环境问题。
 
 ## 5. 记录去哪看
 
