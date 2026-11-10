@@ -10,6 +10,28 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-10 10:36 部署到 192.168.2.22（9 条上线；基础镜像源两次故障）
+
+- 服务器 `d910a60 → 33b0007`（`git pull --ff-only`，10 提交，无冲突）。
+- 镜像回滚点：**`workbuddy2api-panel-wb2api:pre-20261110-1027`**；配置备份 `config.json.bak-20261110-1027`。
+- `config.json` 补 8 个新键（值即采纳的默认值；`schedule.makeup_cards_per_round` 原本已是 0）：
+  `logging.request_archive_context=false` / `panel_log_enabled=true` / `panel_log_retention_days=7` /
+  `panel_log_max_mb=50`、`schedule.window_probe_enabled=true`、
+  `pool.selection_strategy="weighted"` / `separate_text_media=false`。diff 只新增这三段，JSON 复验合法。
+- **第一次 build 失败**：`docker compose up -d --build` 在 `FROM alpine:3.20` 处报
+  `docker.1ms.run … 503 Service Unavailable`；直接 `docker pull` 又撞 `docker-0.unsee.tech … 429`。
+  处理方式：**不动 daemon.json**（改它要重启 docker，会带走所有容器），改为从 `docker.m.daocloud.io`
+  拉 `alpine:3.20` 与 `golang:1.26.10-alpine`，`docker tag` 回标准名，第二次 build 3m52s 成功。
+  期间旧容器全程 `Up (healthy)`，服务零中断。
+- 验证：容器 `running/healthy`；`/healthz` → `{"healthy":5,"realm_servable":{"cn":true,"global":true}}`；
+  `/panel/` 200；`/v1/models` 200；`/panel/api/logs/export` 未鉴权 **401**（新路由存在且走鉴权）；
+  6 项新配置经 `/panel/api/config` 回读全部生效；3 分钟日志 `WARN|ERROR` 0 条；内存 13.9MiB；
+  真实对话 200 / 1.82s / 返回「收到」，`[budget] max_tokens 64 -> 8192` 抬额机制正常。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261110-1027 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard d910a60` 后重建。
+- 运维经验：**国内镜像源不稳时的标准解法**——`docker pull docker.m.daocloud.io/library/<name>:<tag>`
+  再 `docker tag` 回标准名，比改 daemon.json 安全（不重启 docker、不影响别的容器）。2026-11-10 实测可用。
+
 ### 2026-11-10 10:30 跟入上游 9 个提交（额度窗口探针 / 号池分区 / 选号策略 / 运行日志落盘），零收窄
 
 - 巡检：上次同步点 `24d0b61`（11-09 10:40 部署完），本次 `inspect.sh` 自动 ff `main` → **`592fb01`**
