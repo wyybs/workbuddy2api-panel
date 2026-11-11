@@ -10,6 +10,22 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-11 11:03 部署到 192.168.2.22（20 条上线，含号池分区回滚）
+
+- 服务器 `e58bc29 → 8474c01`（`git pull --ff-only`；首次撞 `gnutls_handshake()`，重试一次即通，老毛病）。
+- 镜像回滚点：**`workbuddy2api-panel-wb2api:pre-20261111-1101`**；配置备份 `config.json.bak-20261111-1101`。
+- `config.json` 删掉 `pool.separate_text_media`（上游已撤销该功能）。主配置解析不走 `DisallowUnknownFields`，
+  留着也不会启动失败，但删掉更干净，避免下次误以为还有这个开关。
+- 重建 1m29s（这次基础镜像源正常，未再触发 503/429）。
+- 验证：容器 `running/healthy`；`/healthz` 5 个号、cn + global 可服务；`/panel/` 200；`/v1/models` 200
+  且响应里出现 **`promo_label`**（`b64773e` 生效）；新路由 `POST /panel/api/accounts/reload`、
+  `POST /panel/api/update/probe` 未鉴权均 **401**（存在且走鉴权）；**已撤销的 `POST /panel/api/accounts/{uid}/scope`
+  带 api_key 访问为 404**，确证路由已随回滚删除；配置回读 `separate_text_media=None`、
+  `selection_strategy=weighted`、`window_probe_enabled=True`；3 分钟日志 `WARN|ERROR` 0 条；内存 15.6MiB；
+  真实对话 200 / 1.73s / 返回「收到」。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261111-1101 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard e58bc29` 后重建。
+
 ### 2026-11-11 11:00 跟入上游 20 个提交（回滚号池分区 / 签到补签 / 依赖漏洞 / 账号热重载），零收窄
 
 - 巡检：上次同步点 `592fb01`（11-10 10:36 部署完），本次 `inspect.sh` 自动 ff `main` → **`baf9155`**
