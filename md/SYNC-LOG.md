@@ -10,6 +10,40 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-11 11:00 跟入上游 20 个提交（回滚号池分区 / 签到补签 / 依赖漏洞 / 账号热重载），零收窄
+
+- 巡检：上次同步点 `592fb01`（11-10 10:36 部署完），本次 `inspect.sh` 自动 ff `main` → **`baf9155`**
+  （tag `v2026.11.11.832`），`local` @ `e58bc29`，工作区干净。新提交 **20 条（含 1 merge）**，72 文件 +4989/−1637。
+- **上游撤销了 11-10 刚跟入的号池分区**（`65e644e`）：理由与我们 11-10 的建议一致——分池要运维逐号标
+  text/media，代价（人工维护 + 号少时两边更容易 503）大于收益。撤销 21 文件、净删 607 行：
+  `pool/scope.go` 与测试、`panel/account_scope_test.go`、`POST /panel/api/accounts/{uid}/scope`、
+  `pool.separate_text_media` 全部删除，`pick` 恢复三参数签名。**额度窗口探针与代理订阅导入保留**。
+  回看 11-10：那次跟入时 `separate_text_media` 设的是 `false`、从未启用，所以本次回滚零损失。
+- 收窄判定：**零收窄**。路由集合差集为空（脚本报的「本地独有 scope 路由」是上游删掉了它）。
+  基线 **67 / 27 → 68 / 27**（撤 1 条、增 2 条：`POST /panel/api/accounts/reload`、`POST /panel/api/update/probe`）。
+- 回滚 tag：**`pre-sync-20261111-105733`**（= `e58bc29`）。
+- **`go.mod` 同步以来首次变动**：`klauspost/compress v1.17.4 → v1.20.2`，修可达漏洞 GO-2026-6865（`849d338`）。
+  module 路径未动。
+- 搬入 **19 条 `port:` 提交，零冲突**：
+  - 号池与计费 4 条：`1adfa52`（签到遇「请稍后重试」10 / 40 分钟后自动补签）、`cfef70d`（国际版到期批次按
+    PackageCode + 周期聚合）、`cf2b80f` / `d011fc8`（计费用例锚到日界，修掉 CST 00:00–12:00 必红）
+  - 续写与救援 4 条：`baf9155`（「已写完的答复」不救）、`2e30d7d`（扩大「说一句就停」救援覆盖 + 面板统计）、
+    `910d851`（安全续写正文上限 240B → 2000B）、`e8df35b`（正文里的 DSML 文本不触发续写）
+  - 上游兼容 2 条：`afb5f22`（一个 data 行多 JSON 时拆分）、`8df99ac`（等首帧期间补 SSE 注释帧）
+  - 账号与热重载 3 条：`9e5c2cd`（账号目录热重载 + 更新代理/镜像/失败归因）、`c54c517`（落盘与热重载串行化）、
+    `4f6adc0`（`reload_delete_confirm>1` 时永不删号；merge `a439202` 的内容由它覆盖）
+  - 面板与代理 2 条：`cfac370`（单选框宽度）、`7366740`（订阅 proxies 流式数组不再被丢）
+  - 其他 4 条：`d7ffe42`（缺函数名告警不算已发出的调用）、`b64773e`（`/v1/models` 透出 promo_factor /
+    promo_credits / promo_label）、`65e644e`（回滚分区）、`849d338`（依赖升级）
+- 校验：
+  - `go build ./...` / `go vet ./...` 通过（首次构建会下载 compress v1.20.2）。
+  - `go test ./...` **31 包全绿、0 FAIL**（panel 42.7s / scheduler 28.8s / server 26.4s / updater 11.9s）。
+  - 路由 68 / 27、白名单 12、`git status --porcelain` 空。
+  - 分区残留核对：`pool/scope.go` 已不存在，代码 / 配置 / 前端 grep `separate_text_media` 为 **0**；
+    仅 `md/SYNC-LOG.md` 与本机 `.workbuddy/memory` 的历史记录里还提到（append-only，正常）。
+  - 生产 `config.json` 里遗留的 `pool.separate_text_media` 会被忽略（主配置解析不走
+    `DisallowUnknownFields`，只有 `panel/proxies.go` 的请求体用），部署时顺手删干净。
+
 ### 2026-11-10 10:36 部署到 192.168.2.22（9 条上线；基础镜像源两次故障）
 
 - 服务器 `d910a60 → 33b0007`（`git pull --ff-only`，10 提交，无冲突）。
