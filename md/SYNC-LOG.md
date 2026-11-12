@@ -10,6 +10,22 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-12 10:00 部署到 192.168.2.22（7 条上线）
+
+- 服务器 `837857f → 40f6875`（`git pull --ff-only`；首次撞 `gnutls_handshake()`，重试即通）。
+- 镜像回滚点：**`workbuddy2api-panel-wb2api:pre-20261112-0959`**；配置备份 `config.json.bak-20261112-0959`
+  （本批无配置变更，备份只为留档）。
+- 重建 1m14s，未触发基础镜像源故障。
+- 验证：容器 `running/healthy`；`/healthz` 5 个号、cn + global 可服务；`/panel/` 200；`/v1/models` 200；
+  3 分钟日志 `WARN|ERROR` 0 条。**长回答专项验证**（本批动了 narration 长度闸门与续写分流）：
+  请求 200 / 3.3s，`finish_reason=stop`，正文 211 字且结尾是完整句（「……需要在显存占用与缓存命中收益
+  之间做权衡。」），`rescue` / `narration` / `toolonly` 均无触发记录——新闸门没有误伤正常回答。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261112-0959 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard 837857f` 后重建。
+- **踩坑记录**：`if timeout 120 git pull --ff-only 2>&1 | tail -2; then break; fi` 这种写法里，
+  `if` 判的是管道末端 `tail` 的退出码（恒 0），重试循环会在第一次就 `break`，看起来像"成功"其实没拉。
+  正确写法是 `git pull > /tmp/pull.log 2>&1` 后判退出码，再 `tail` 看日志。
+
 ### 2026-11-12 09:58 跟入上游 7 个提交（签到回执四态 / 会话粘性 / 身份指令清洗），基线不变
 
 - 巡检：上次同步点 `baf9155`（11-11 11:03 部署完），`inspect.sh` 自动 ff `main` → **`8125831`**
