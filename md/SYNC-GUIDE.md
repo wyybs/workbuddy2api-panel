@@ -71,7 +71,7 @@ git push origin main        # 纯镜像 ff，不产生提交
 
 - [ ] `git status --porcelain` 为空
 - [ ] `go build ./...` 通过
-- [ ] `go test ./...` 通过（346 个测试文件，慢是正常的）
+- [ ] `go test ./...` 通过（352 个测试文件，慢是正常的）
 - [ ] 路由计数回到 68 / 27
 - [ ] `go.mod` 的 module 路径仍是我们 fork 的（若上游改名需评估）
 - [ ] `md/SYNC-LOG.md` 已追加一条，含回滚 tag

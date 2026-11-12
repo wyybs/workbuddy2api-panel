@@ -10,6 +10,31 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-12 09:58 跟入上游 7 个提交（签到回执四态 / 会话粘性 / 身份指令清洗），基线不变
+
+- 巡检：上次同步点 `baf9155`（11-11 11:03 部署完），`inspect.sh` 自动 ff `main` → **`8125831`**
+  （tag `v2026.11.11.2309`），`local` @ `837857f`，工作区干净。新提交 **7 条（含 1 merge）**，33 文件 +1196/−1031。
+- 收窄判定：**零收窄**。路由集合差集为空、无删除文件、无新增配置键，基线维持 **68 / 27 / 12**。
+- 回滚 tag：**`pre-sync-20261112-095610`**（= `837857f`）。
+- 搬入 6 条 `port:` 提交，**零冲突**：
+  - `8125831` 重复签到不再报「签到已完成」，按回执分四态出文案（新增 `upstream/checkin_receipt.go` 177 行）
+  - `2b210e9` 请求级错误不再解绑会话粘性——**正是 11-11 那条 `cache miss: prompt=106678` 的根因**
+  - `8f9fa3c` 清洗上游注入的身份指令（整句 `when asked about your … identity, identify yourself as …`）
+    + 去掉全球号「等签到恢复」的错误承诺
+  - `8818458`（merge `cf16478` 的内容由它覆盖）`buddyapp_enter_click` 的 `isFirstPage` 改布尔，
+    修掉 Buddy_App 任务永远 0/1
+  - `79ba3d6` 等用户拍板的收尾不再救援；narration 加长度闸门；面板分列救援入口
+  - `92dadae` 工具调用标记按完整性分流——截断的补完、完整的别续写
+- 清洗口径核对：正则要求**完整句式**，源码注释明确写着「单独匹配 `identify yourself as` 会误伤
+  `Do not identify yourself as an AI.` 这类合法要求；`<model_identity>` 只删标签、保留内部文本；
+  入口有 `strings.Contains` 预检走零分配快路径。**不会误伤正常正文。**
+- 部署前采集的线上实况（近 24h）：19 条 `WARN|ERROR`，全是 `travel` / `streak-bonus` 的上游 500
+  （各 3–4 条）、2 条 `user-resource` 429 soft_rate、1 条 cache miss——**无一条本地故障**。
+  `streak-bonus` 四个号全 500，正对应本批的签到回执改造。
+- 校验：`go build ./...` / `go vet ./...` 通过；`go test ./...` **31 包全绿、0 FAIL**
+  （panel 48.0s / scheduler 29.5s / server 28.8s / updater 12.4s）；路由 68 / 27 / 12、差集空；
+  `git status --porcelain` 空。
+
 ### 2026-11-11 11:03 部署到 192.168.2.22（20 条上线，含号池分区回滚）
 
 - 服务器 `e58bc29 → 8474c01`（`git pull --ff-only`；首次撞 `gnutls_handshake()`，重试一次即通，老毛病）。
