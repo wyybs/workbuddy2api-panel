@@ -10,6 +10,19 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-13 10:00 部署到 192.168.2.22（8 条上线，含运营活动领奖）
+
+- 服务器 `0cfd8c5 → 18805b2`（`git pull --ff-only`；第 1 次 TLS 抖动、第 2 次成功）。
+- 镜像回滚点：**`pre-20261113-0957`**；配置备份 `config.json.bak-20261113-0957`（本批无配置变更）。
+- 重建 1m38s。
+- 验证：容器 `running/healthy`；`/healthz` 5 个号、cn + global 可服务；面板响应头已带
+  **`X-Robots-Tag: noindex, nofollow`**（`35228b3` 生效）；`GET /panel/api/campaign` **200** 且读到真实进度——
+  5 个账号里 4 个在活动期内，各有 1 个 `邀请好友/joined` 可领阶段，国际版账号 `in_period=false`；
+  3 分钟日志 `WARN|ERROR` 0 条；真实对话 200 / 1.60s / 返回「收到」。
+- **未执行领奖**：`POST /panel/api/campaign/claim` 会真实改变账号状态，留待确认后再点。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261113-0957 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard 0cfd8c5` 后重建。
+
 ### 2026-11-13 09:56 跟入上游 8 个提交（运营活动领奖 / 免费号模型预筛 / 出口归属 / 脱敏），零收窄
 
 - 巡检：上次同步点 `8125831`（11-12 10:00 部署完），`inspect.sh` 自动 ff `main` → **`7a48d72`**
