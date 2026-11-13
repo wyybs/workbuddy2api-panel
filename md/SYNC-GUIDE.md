@@ -23,7 +23,7 @@
 
 | 能力 | 基线值 | 怎么量 |
 |---|---|---|
-| 面板路由数 | 68 | `grep -rhoE 'HandleFunc\("' internal/panel \| wc -l` |
+| 面板路由数 | 70 | `grep -rhoE 'HandleFunc\("' internal/panel \| wc -l` |
 | 服务端路由数 | 27 | `grep -rhoE 'HandleFunc\("' internal/server \| wc -l` |
 | 模型白名单逻辑 | 存在 `NormalizeAllowedModels` | `grep -rn NormalizeAllowedModels internal/livecfg` |
 | 账号池选号链路 | `pick.go` / `cooldown.go` / `plan.go` 均在 | `ls internal/pool` |
@@ -37,7 +37,9 @@
 > → **67 / 27**（2026-11-10，随上游 9 条提交跟入：`GET /panel/api/logs/export` +
 > `POST /panel/api/accounts/{uid}/scope`）
 > → **68 / 27**（2026-11-11，随上游 20 条提交跟入：上游 `65e644e` **撤销了号池分区**，去掉
-> `accounts/{uid}/scope`，同时新增账号目录热重载 `accounts/reload` 与 `update/probe`）。
+> `accounts/{uid}/scope`，同时新增账号目录热重载 `accounts/reload` 与 `update/probe`）
+> → **70 / 27**（2026-11-13，随上游 8 条提交跟入：运营活动 `GET /panel/api/campaign` +
+> `POST /panel/api/campaign/claim`）。
 >
 > ⚠️ 计数口径是**出现次数**（含测试文件里的 httptest mux），不能单看数字判收窄。
 > 判「有没有被砍能力」用路由集合差集：
@@ -71,8 +73,8 @@ git push origin main        # 纯镜像 ff，不产生提交
 
 - [ ] `git status --porcelain` 为空
 - [ ] `go build ./...` 通过
-- [ ] `go test ./...` 通过（352 个测试文件，慢是正常的）
-- [ ] 路由计数回到 68 / 27
+- [ ] `go test ./...` 通过（357 个测试文件，慢是正常的）
+- [ ] 路由计数回到 70 / 27
 - [ ] `go.mod` 的 module 路径仍是我们 fork 的（若上游改名需评估）
 - [ ] `md/SYNC-LOG.md` 已追加一条，含回滚 tag
 - [ ] `origin/local` 与 `origin/main` 均已推送（`main` 只允许 ff；用 `git ls-remote` 复核，别看 fork 页面）
