@@ -40,6 +40,8 @@
 > `accounts/{uid}/scope`，同时新增账号目录热重载 `accounts/reload` 与 `update/probe`）
 > → **70 / 27**（2026-11-13，随上游 8 条提交跟入：运营活动 `GET /panel/api/campaign` +
 > `POST /panel/api/campaign/claim`）。
+> → **70 / 27 不变**（2026-11-16，A+C 批 47 条跟入，全是行为修复不增路由；模型规则 +5 与
+> 混元 3D +3 属 B 批，未跟，跟完才是 75 / 30）。
 >
 > ⚠️ 计数口径是**出现次数**（含测试文件里的 httptest mux），不能单看数字判收窄。
 > 判「有没有被砍能力」用路由集合差集：

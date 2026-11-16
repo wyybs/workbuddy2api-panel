@@ -10,6 +10,49 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-16 09:58 跟入上游 A+C 批 47 条（稳定性修复为主），基线维持 70 / 27
+
+- 巡检：上次同步点 `7a48d72`（11-13），`inspect.sh` 自动 ff `main` → **`74456c8`**
+  （tag `v2026.11.15.2246`），`local` @ `670cf27`。上游新增 **67 条（56 条实质 + 11 个 merge）**，
+  145 文件 **+10680 / −1876**，跨 11-14 / 11-15 两个发版。
+- **分两批**：本批只搬 A（线上正在踩的坑）+ C（测试与授权链接细节），共 **47 条**；
+  B（新功能）留后，见文末「待跟 B 批」。
+- 收窄判定：**零收窄**。本地独有路由为空；上游有本地缺的 8 条正好全是 B 类
+  （模型规则 5 + 3D 3）。基线维持 **70 / 27 / 12**。
+- 回滚 tag：**`pre-sync-20261116-095238`**（= `670cf27`）。
+- 搬入 47 条 `port:` 提交，**2 处冲突**：
+  - `1ad68a0`（日柱状图/折线共用色板 + 补回 `models.allowed` 断言）**挪到 B 批**——
+    它同时依赖被跳过的 `ff39878`（余额趋势灰线，引入 `barColor`）和 `b957e32`
+    （`features.busy_retry` / `busy_wait_seconds` 示例断言），单独搬必然冲突。
+  - `ab67974`（记账合计按段合并）手工解冲突：该提交在 prv236 分支上写的是
+    `settleToolOnly()` 无参版本，本地 `1f67b37` 已改成 `settleToolOnly(sawDone)`。
+    解法取并集——保留 `r.flushSegUsage()` 前置调用，签名用本地带参版。
+- **清单调整**：`b957e32`（6020/6021 排队先等一轮）原判为「新功能」，实测它引入配置键
+  `features.busy_retry` / `busy_wait_seconds`，且与 `629390d`（排队不提前写注释帧）同族，
+  改判 A 类跟入。跟入后这两键缺省 `true` / `60`，老 `config.json` 不写也能跑。
+- 主要修复面：会话粘性键掺 `user_id`（Closes #234，多下游用户不再撞号）、连坐暂停阈值按池规模
+  缩放 + 指数退避 + `streak` 清零、首帧心跳后置到上游 200 之后、截断终态不再补在
+  error/`[DONE]` 之后、粘帧 error 触发首帧否决、续写与救援逐段记账、`/v1/search`
+  `total_results` 只扣丢弃数、热重载不清空整池、导入覆盖前求证改有界并发、
+  加密 auth 回写仍保密、签到 `code=0` 不再误判成功、选号不再把池置脏。
+- 校验：`go build ./...` / `go vet ./...` 通过；路由 **70 / 27 / 12**，本地独有路由差集为空；
+  `git grep misakano7545` 仅命中 module 路径与 import。
+- `go test ./...`：**59 条 FAIL，全部是 `fork/exec … Access is denied`**
+  （panel 前端用例要 fork `node.exe`、updater 集成用例要 fork 临时 `test.test.exe`），
+  已知沙箱限制。硬比对：`git worktree` 到 `pre-sync-20261113-095408` 跑同样两个包得 **60 条**，
+  新版反而少 1 条 → **零回归**。`node --check internal/panel/app.js` 在 shell 里手跑通过。
+- 推送：`origin/local` 已包含这 47 条；`origin/main` 纯 ff 到 `74456c8`（不产生提交）。
+
+#### 待跟 B 批（下一批，预计 +8 路由 → 75 / 30）
+
+| 上游提交 | 内容 | 备注 |
+|---|---|---|
+| `8519ea2` + `74456c8`（merge `982deea`） | 模型规则：`pool/modelrules.go` 441 + `panel/modelrules.go` 140，面板 +5 路由 | 需成对搬 |
+| `557b3d5`（merge `4974ccf`） | 混元 3D：`server/three_d.go` 760 + `upstream/three_d.go` 306 + `three_d_credential.go` 222 + MCP 工具，服务端 +3 路由 | 新配置键 `features.three_d_enabled`（默认 false）；依赖外部云凭证签发，**开关先别开** |
+| `1ad68a0` | 日柱状图/折线共用色板 + `models.allowed` 断言 | 必须先搬 `ff39878` 与 `b957e32`（后者已随本批跟入） |
+| `fa4d62c`（merge `16fa2d8`） | `/v1/messages` 转发 `output_config.format` 为 `response_format` | 独立新功能 |
+| `ff39878`（merge `1a294b7`） | 余额趋势折线/柱状图对失效账号用灰线 | 纯前端，引入 `barColor`，须先于 `1ad68a0` |
+
 ### 2026-11-13 10:00 部署到 192.168.2.22（8 条上线，含运营活动领奖）
 
 - 服务器 `0cfd8c5 → 18805b2`（`git pull --ff-only`；第 1 次 TLS 抖动、第 2 次成功）。
