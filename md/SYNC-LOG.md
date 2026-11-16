@@ -10,6 +10,19 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-16 10:25 配置变更：出站 DNS 固定到公共解析器
+
+- 起因：11-15 00:00:48 五个账号的余额查询**同一秒全失败**，错误一致——`lookup www.workbuddy.cn
+  on 127.0.0.11:53: server misbehaving`。这是 Docker 内嵌 DNS 抖动，宿主机 resolv.conf 一变就整批解析失败。
+- 改动：`config.json` 的 `dns_servers` 由 `[]` 改为 `["223.5.5.5","119.29.29.29"]`；
+  备份 `config.json.bak-20261116-1025`。
+- 生效范围：`cmd/server/main.go:210` 用 `upstream.NewDNSDialer(cfg.DNSServers)` 注入出站
+  HTTP Transport，**只影响业务出站解析**，不改容器 `/etc/resolv.conf`；也可用 `WB2A_DNS` 覆盖。
+- 前置验证：22 到两个 DNS 均可达（223.5.5.5 应答 34B / 7ms，119.29.29.29 应答 75B / 13ms）。
+- 生效方式：`docker compose restart wb2api`（config.json 是挂载，重启即生效，无需重建）。
+- 验证：重启后 `Up (healthy)`、`/healthz` 5/5、`/panel/` 200、真实对话 **200 / 1.97s / 通**。
+- 回滚：`cp config.json.bak-20261116-1025 config.json && docker compose restart wb2api`。
+
 ### 2026-11-16 10:09 部署到 192.168.2.22（A+C 批 47 条上线）
 
 - 服务器 `a4499f8 → 7b96ea4`（`git pull --ff-only`，一次成功，未撞 TLS 抖动）。
