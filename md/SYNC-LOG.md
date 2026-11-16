@@ -10,6 +10,30 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-16 10:09 部署到 192.168.2.22（A+C 批 47 条上线）
+
+- 服务器 `a4499f8 → 7b96ea4`（`git pull --ff-only`，一次成功，未撞 TLS 抖动）。
+- 镜像回滚点：**`pre-20261116-1003`**；配置备份 `config.json.bak-20261116-1003`（本批无配置变更，
+  备份只留档；`features` 里没有 `busy_retry` / `busy_wait_seconds`，走代码缺省 `true` / `60`）。
+- `mihomo` 容器 Up 13 days，拉取走代理正常。
+- 重建 **1m28s**，未触发基础镜像源故障。
+- 验证：
+  - 容器 `Up (healthy)`；`/healthz` → `healthy:5 / total:5`，cn + global 均可服务；
+  - `/panel/` **200**，响应头带 `X-Robots-Tag: noindex, nofollow`；
+  - `/panel/api/campaign` **401**（路由在、鉴权在工作，非 404）；
+  - `/v1/models` **200 / 6 个模型**；真实对话 **200 / 1.48s**，返回「收到」，`finish_reason=stop`，
+    `usage.credit=0.01`；
+  - 长回答专项（本批动了续写闸门与逐段记账）：**200 / 8.64s / 282 字**，结尾是完整句
+    「……防止单接口拖垮全局并保障整体可用性。」，`finish_reason=stop`，`credit=0.33`，
+    `total_tokens=1383` —— 续写/截断/记账链路均正常。
+- 日志：部署至今 **2 条 WARN**，均为历史既有，非本批引入：
+  - `global models: enterprise endpoint failed … status 500`（上游接口间歇）；
+  - `web activity … 10034 CODEBUDDY_API_KEY is required`——`data/request-logs/requests-2026-11-11.jsonl`
+    与 `data/credit-history.json` 里早有同码记录，是国际版账号做 web 活跃上报的固有失败。
+  之后无新增，无 ERROR。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261116-1003 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard a4499f8` 后重建。
+
 ### 2026-11-16 09:58 跟入上游 A+C 批 47 条（稳定性修复为主），基线维持 70 / 27
 
 - 巡检：上次同步点 `7a48d72`（11-13），`inspect.sh` 自动 ff `main` → **`74456c8`**
