@@ -50,7 +50,7 @@
 
 ```bash
 # 1. 巡检（只读）
-bash ~/.workbuddy/skills/fork-upstream-sync/scripts/inspect.sh .
+bash ~/.workbuddy/skills/wyybs-fork-upstream-sync/scripts/inspect.sh .
 
 # 2. 回滚点
 git tag pre-sync-$(date +%Y%m%d-%H%M%S)

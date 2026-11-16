@@ -72,7 +72,7 @@ git config remote.pushDefault origin                            # 裸 git push �
 正式流程与判据以 **`md/SYNC-GUIDE.md`** 为准，历史结论与「已判定不跟」清单一律追加到 **`md/SYNC-LOG.md`**。一句话版：
 
 ```bash
-bash ~/.workbuddy/skills/fork-upstream-sync/scripts/inspect.sh .   # 只读巡检：fetch + 差异 + 能力基线
+bash ~/.workbuddy/skills/wyybs-fork-upstream-sync/scripts/inspect.sh .   # 只读巡检：fetch + 差异 + 能力基线
 git tag pre-sync-$(date +%Y%m%d-%H%M%S)                            # 回滚点，出事 reset --hard 回这里
 git switch local
 git cherry-pick -x <upstream-sha>                                  # 提交信息前缀改 port:，剥离收窄 hunk
