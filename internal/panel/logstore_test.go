@@ -103,6 +103,8 @@ func TestLogStoreRotatesOnMaxBytes(t *testing.T) {
 func TestLogStoreBackfillNewestFirst(t *testing.T) {
 	dir := t.TempDir()
 	s := NewLogStore(dir, 7, 0)
+	// 日期相对今天：重开时 NewLogStore 按真实时钟清理保留期外的文件，写死绝对日期
+	// 会在保留期过期的第一天就变红（2026-11-16 起 CI 一直红的就是这条）。
 	for i := 0; i < 5; i++ {
 		s.Append(LogEntry{TS: dayTS(dayAgo(2), 10).Add(time.Duration(i) * time.Minute), Ch: ChSys, Text: "old-" + string(rune('0'+i))})
 	}
