@@ -10,6 +10,25 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-17 16:10 部署到 192.168.2.22（18 条上线，含模型规则与 3D 端点）
+
+- 服务器 `7b96ea4 → f025862`。**`git pull` 第 1 次撞 `gnutls_handshake()`，重试即通**
+  （22 上这个 TLS 抖动是常态，别当故障）。
+- 镜像回滚点：**`pre-20261117-1606`**；配置备份 `config.json.bak-20261117-1606`（本批无配置变更，
+  `features.three_d_enabled` 未配置，走代码默认 `false`）。
+- 重建 **1m26s**。
+- 验证：
+  - 容器 `Up (healthy)`；`/healthz` → `healthy:5 / total:5`，cn + global 可服务；
+  - `/panel/` **200**；`/panel/api/tasks/live` 与 `/panel/api/model_rules` 均 **401**
+    （未带鉴权，401 而非 404 = 路由已注册）；
+  - `POST /v1/3d/tasks` 带 key **403 `three_d_disabled`**，且返回 `gateway_hint` 说明开启方式
+    —— 3D 路由已就位但按计划保持关闭；
+  - 真实对话 **200 / 1.41s / 升级**。
+- 日志：启动正常，**1 条 WARN**——`global models: enterprise endpoint failed … status 500`，
+  与部署前一致的上游接口间歇问题，非本批引入。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261117-1606 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard 7b96ea4` 后重建。
+
 ### 2026-11-17 16:05 两段跟入 18 条，补齐 B 批与新功能，基线 70/27 → 76/30
 
 - 巡检：上次同步点 `74456c8`（11-16），`inspect.sh` 自动 ff `main` → **`27b7458`**
@@ -40,7 +59,7 @@
   代码层 `git diff main..local -- '*.go' '*.js' '*.html'` **为空**——与上游逐字对齐。
 - **基线修正**：11-16 预估跟完是 75 / 30，实际 **76 / 30**，少算的那条是 `38dca39` 的任务中心实时卡。
 - ⚠️ `features.three_d_enabled` 保持 `false`（默认值），3D 凭证链路待单独验证。
-- ⚠️ **尚未部署**：本批已提交，服务器仍跑 11-16 那版。
+- 部署见上一条（16:08 重建上线，`/v1/3d/*` 实测回 403 `three_d_disabled`）。
 
 ### 2026-11-16 10:25 配置变更：出站 DNS 固定到公共解析器
 
