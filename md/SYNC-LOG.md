@@ -10,6 +10,29 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-18 10:10 部署到 192.168.2.22（47 条上线；本次走 git bundle 兜底）
+
+- 服务器 `f025862 → 7f454c1`。镜像回滚点：**`pre-20261118-1003`**；
+  配置备份 `config.json.bak-20261118-1003`（本批无配置变更）。
+- 🔴 **`git pull` 连续 3 次全失败**，报 `gnutls_handshake() failed`。诊断结论不是偶发抖动：
+  `mihomo` 容器 Up 2 weeks、7890/9090 都在监听，但日志里
+  `dial 飞鸟云 (match DomainKeyword/github) --> github.com:443 error: context deadline exceeded`
+  ——**订阅节点「飞鸟云」已失效**。重启 mihomo 无效（节点本身不通），
+  直连 github 也超时（22 无直连出网）。
+- 处置：走 **git bundle 兜底**（MEMORY 里记的预案）——
+  本地 `git bundle create wb2.bundle f025862..local`（129K 增量）→ `scp` →
+  服务器 `git fetch /tmp/wb2.bundle local && git merge --ff-only FETCH_HEAD`。一次成功。
+- 重建 **1m24s**，未触发基础镜像源故障（GOPROXY 走境内，不受 github 代理影响）。
+- 验证：
+  - 容器 `Up (healthy)`；`/healthz` → `healthy:5 / total:5`，cn + global 可服务；`/panel/` 200；
+  - 短对话 **200 / 2.02s / 头部**；长回答 **200 / 3.91s / 188 字 / finish=stop / credit 0.08**
+    —— 出站头 `X-Client-*` 改动未破坏链路；
+  - 日志 **1 条 WARN**（`global models … status 500`，既有）。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261118-1003 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard f025862` 后重建。
+- ⚠️ **遗留**：22 的出网代理仍不可用（节点「飞鸟云」超时），下次拉代码前要么更新 mihomo 订阅，
+  要么直接用 bundle。业务容器不依赖该代理（出站走直连 + `dns_servers`），不受影响。
+
 ### 2026-11-18 10:02 跟入 47 条纯修复（零新增路由，基线维持 76 / 30）
 
 - 巡检：上次同步点 `27b7458`（11-17），`inspect.sh` 自动 ff `main` → **`f8d8346`**，
