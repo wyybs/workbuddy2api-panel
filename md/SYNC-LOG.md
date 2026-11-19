@@ -10,6 +10,26 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-19 10:35 修复 22 的出网代理：换成本机 FlClash 的新订阅
+
+- 起因：11-18 起 22 的 mihomo 节点全部超时（日志 `dial 飞鸟云 … context deadline exceeded`），
+  `git pull` 连续失败，只能走 bundle 兜底。
+- 处置：把本机 FlClash 正在用的配置（**11-19 新订阅，83 个节点**）拷到 22，改 4 处适配容器：
+  `allow-lan: false → true`、`external-controller: "" → 0.0.0.0:9090`、
+  `secret: "" → wb2api-proxy`、`log-level: error → info`（`mixed-port 7890` 与 `bind-address "*"` 本来就一致）。
+- 备份：**`/data/docker/mihomo/config.yaml.bak-20261119-1034`**（旧的 11-02 配置保留）。
+- 差异要点：新订阅的节点域名加了前缀（`1sg01.459292.xyz` vs 旧的 `sg01.459292.xyz`），
+  机场换过入口，旧配置里那批域名已全部失效——这才是 22 代理挂掉的真正原因，不是本地网络问题。
+- 验证：
+  - `mihomo` 容器 `Up`，只有个别节点（日本03/日本06）健康检查超时，不影响整体；
+  - 代理连测 3 次 **200 / 2.4s、3.1s、4.3s**；
+  - 控制器 API 正常（`v1.19.33`，Bearer `wb2api-proxy`）；
+  - **`git ls-remote` 1.06 秒，`git pull` 一次成功**（`b1bab81 → 5c21b9b`）。
+- 结论：**bundle 兜底不再是常态**，22 已能正常拉 GitHub。若以后又出现 `gnutls_handshake`，
+  照 `SYNC-GUIDE.md` §3.1 先查节点再决定是否 bundle。
+- 回滚：`cp /data/docker/mihomo/config.yaml.bak-20261119-1034 /data/docker/mihomo/config.yaml
+  && cd /data/docker && docker compose restart mihomo`。
+
 ### 2026-11-19 10:22 部署到 192.168.2.22（6 条上线，再次走 bundle）
 
 - 服务器 `7f454c1 → b1bab81`。镜像回滚点：**`pre-20261119-1019`**；
