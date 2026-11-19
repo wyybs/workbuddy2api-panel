@@ -74,6 +74,39 @@ git push origin local
 git push origin main        # 纯镜像 ff，不产生提交
 ```
 
+### 3.1 推不上去 / fetch 卡住时（代理失效）
+
+**2026-11-19 实测**：巡检卡在 `fetch` 无输出，根因是**两层代理同时失效**，不是上游问题：
+
+| 层 | 检查 | 症状 |
+|---|---|---|
+| 沙箱注入 | `echo $http_proxy` → `127.0.0.1:<随机端口>` | Agent 会话里的本地代理，不通外网，`curl` 秒失败 |
+| `.gitconfig` URL 级 | `127.0.0.1:7890`（FlClash） | 机场节点失效时超时；`mihomo`/`FlClash` 进程活着但日志报 `dial … error: context deadline exceeded` |
+
+判断网络本身是否健康：`PowerShell` 里 `Invoke-WebRequest https://github.com` 若返回 200，说明线路没问题，只是代理挂了。
+**直连其实不慢**——实测 `ls-remote` 2.3s、`curl` 8.9s，比走挂掉的代理强。
+
+```bash
+# 本机：清掉两层代理直连（GIT_CONFIG_* 只对本次调用生效，不改 .gitconfig）
+env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY \
+  GIT_CONFIG_COUNT=3 \
+  GIT_CONFIG_KEY_0="http.https://github.com.proxy" GIT_CONFIG_VALUE_0="" \
+  GIT_CONFIG_KEY_1="http.https://api.github.com.proxy" GIT_CONFIG_VALUE_1="" \
+  GIT_CONFIG_KEY_2="http.https://raw.githubusercontent.com.proxy" GIT_CONFIG_VALUE_2="" \
+  git fetch upstream --prune --tags
+```
+
+22 上更彻底：它**没有直连出网**，代理节点挂掉时只剩 bundle 一条路。
+
+```bash
+# 本地：只打增量（服务器当前 HEAD 之后的部分，通常几百 KB）
+git bundle create /tmp/wb2.bundle <服务器当前HEAD>..local
+scp -i ~/.ssh/id_wb_222 /tmp/wb2.bundle root@192.168.2.22:/tmp/
+# 服务器
+cd /home/appsrv/workbuddy2api-panel
+git fetch /tmp/wb2.bundle local && git merge --ff-only FETCH_HEAD && rm -f /tmp/wb2.bundle
+```
+
 ## 4. 校验清单（每次必跑）
 
 - [ ] `git status --porcelain` 为空
