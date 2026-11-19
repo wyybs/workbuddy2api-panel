@@ -10,6 +10,22 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-19 10:22 部署到 192.168.2.22（6 条上线，再次走 bundle）
+
+- 服务器 `7f454c1 → b1bab81`。镜像回滚点：**`pre-20261119-1019`**；
+  配置备份 `config.json.bak-20261119-1019`（本批无配置变更）。
+- 22 的 mihomo 仍是「飞鸟云」超时、且它无直连出网，继续走 **bundle**：
+  增量 **34K** → `scp` → `fetch + merge --ff-only`，一次成功。
+- 重建 **1m18s**。
+- 验证：
+  - 容器 `Up (healthy)`；`/healthz` → `healthy:5 / total:5`；`/panel/` 200；
+  - 短对话 **200 / 1.63s / 好了**；
+  - **工具调用专项**（本批改动了工具 schema 顶层 `$ref` 与关键字类型纠偏）：
+    带 `get_weather` 定义请求 → **200 / 1.75s / finish=tool_calls / 1 个调用**，schema 未被打坏；
+  - 日志 **1 条 WARN**（`global models … status 500`，既有）。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261119-1019 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard 7f454c1` 后重建。
+
 ### 2026-11-19 10:20 跟入 6 条修复；记下「两层代理都挂」的直连姿势（基线维持 76 / 30）
 
 - 巡检：上次同步点 `f8d8346`（11-18），`inspect.sh` 自动 ff `main` → **`85179d4`**
