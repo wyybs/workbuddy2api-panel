@@ -100,31 +100,7 @@ env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY \
   git fetch upstream --prune --tags
 ```
 
-22 上更彻底：它**没有直连出网**，代理节点挂掉时只剩 bundle 一条路。
-
-**2026-11-23 新增：22 代理自检三步**（两次故障根因完全不同，别用同一个修法）
-
-```bash
-# ① 看 mihomo 日志定性：节点域名失效 vs DNS 循环
-docker logs --tail 20 mihomo 2>&1 | grep -iE "error|dial"
-#   "context deadline exceeded"     → 节点坏了/机场换入口 → 换订阅（烘 FlClash config.yaml）
-#   "dns resolve failed"            → 先验域名，再查 DNS 配置
-
-# ② 域名是否还活着（换 3 个公共 DNS，全 NXDOMAIN 才是真失效）
-for s in 223.5.5.5 8.8.8.8 1.1.1.1; do nslookup <节点域名> $s | tail -1; done
-#   根域有 NS 响应但所有子域 NXDOMAIN = 机场清空了 A 记录 → 必须换订阅
-
-# ③ 换订阅后仍解析不了 → 是 DNS 循环依赖，不是订阅
-grep -nE "respect-rules|^  - https://" /data/docker/mihomo/config.yaml
-#   FlClash 客户端配置里 respect-rules: true + DoH nameserver → 解析要走代理、
-#   代理节点域名又要先解析 = 死锁。客户端有系统解析器兜底，容器里没有。
-#   修法：respect-rules: true → false，nameserver 换境内 IP（223.5.5.5 / 119.29.29.29），
-#   fallback 保留 DoH + fallback-filter: geoip CN 防污染。
-```
-
-> 换订阅的 4 处容器适配（每次照做）：`allow-lan: true`、`external-controller: "0.0.0.0:9090"`、
-> `secret: "wb2api-proxy"`、`log-level: "info"`；再加一条 `respect-rules: false`（仅限本机有系统解析器、
-> 22 没有）。重启后**等 20-30 秒**再测——端口监听起来比容器 Up 晚，太早测会得到 `000`。
+22 上更彻底：它**没有直连出网**，代理节点挂掉时只剩 bundle 一条路。动手前先按文末「22 代理自检」定性。
 
 ```bash
 # 本地：只打增量（服务器当前 HEAD 之后的部分，通常几百 KB）
@@ -159,6 +135,15 @@ dns:
   nameserver: ["223.5.5.5", "119.29.29.29"]   # 用 IP，别再放 DoH
   fallback: [...]               # DoH 留给 fallback，配合 fallback-filter geoip CN 防污染
 ```
+
+**换订阅时的 4 处容器适配（每次都照做）**：`allow-lan: false → true`、
+`external-controller: "" → "0.0.0.0:9090"`、`secret: "" → "wb2api-proxy"`、
+`log-level: "error" → "info"`；再补 `respect-rules: false`（本机客户端有系统解析器兜底，容器里没有）。
+重启后**等 20–30 秒**再测——端口监听比容器 `Up` 晚一拍，太早测会得到 `000` 假故障。
+
+订阅真失效时的判据（别拿单个 DNS 下结论）：换 3 个公共 DNS 查同一个节点域名，
+`223.5.5.5` / `8.8.8.8` / `1.1.1.1` **全 NXDOMAIN**、但根域 `nslookup -type=ns <根域>` 仍有 NS 响应
+→ 机场清空了 A 记录，必须换订阅；只有 mihomo 解析不出来而容器里 `getent hosts` 正常 → 才是 DNS 死锁。
 
 ## 4. 校验清单（每次必跑）
 
