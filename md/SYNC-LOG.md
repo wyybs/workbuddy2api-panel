@@ -50,9 +50,9 @@
 - 收窄判定：**零收窄**。路由集合双向差集为空（本地缺上游 = 0）；面板路由 76 不变、**服务端路由 30 → 34**
   （纯新增 4 条，见下）；无删除文件；无新增写死 `misakano7545` 的地址。
 - 回滚 tag：**`pre-sync-20261123-094423`**（= `d526246`，`git reset --hard` 可整段退回）。
-- 搬入 **27 条 `port:` 提交，1 处冲突**（`676f9da`：请求台账白名单与 README 端点表——
-  上游该提交基于语音端点提交之前，本地已含 `/v1/audio/speech` 与 `/v1/audio/transcriptions`，
-  取本地版本保留语音两条）：
+- 搬入 **27 条 `port:` 提交，零冲突**（27 次 `cherry-pick -x` 全部 exit 0；本机 `rerere.enabled` 未设置，
+  不存在「自动套用旧解法」把冲突静默吃掉的可能。旁证：代码层 `git diff main..local` 为空、
+  README 端点表 4 条齐全）：
   - **官方语音端点（issue #277）12 条**：`923dbec`（`POST /v1/audio/speech`、`POST /v1/audio/transcriptions` 落地）、
     `e1280ca`（ASR multipart 的 Content-Type 被 CommonHeaders 覆盖成 `application/json`）、
     `08cb935`（ASR 3MB 上限在入口挡掉、15053 归请求级、TTS 认 SSE 错误帧）、
@@ -78,12 +78,13 @@
   本批 27 条**未触及** `Dockerfile` / `docker-compose.yml` / `.github`。
 - 校验：
   - `go build ./...` / `go vet ./...` 通过。
-  - `go test ./...`：**29 包全绿 0 FAIL**（1m07s —— 本次沙箱**未**拦 fork，
-    11-09 那种 `Access is denied` 未复现）。
+  - `go test ./...`：**30 包全绿 0 FAIL**（复跑两次同结果；`internal/panel` 66.7s、`internal/scheduler` 32s、
+    `internal/server` 39s、`internal/updater` 16.8s —— 本次沙箱**未**拦 fork，11-09 那种 `Access is denied` 未复现）。
+    注：`ok` + `no test files` 合计 30 行，`grep -c '^(ok|\?)'` 可复核。
   - 代码层 `git diff main..local -- '*.go' '*.js' '*.html' 'go.mod'` **为空**；`git status --porcelain` 空。
   - 路由 76 / 34、`NormalizeAllowedModels` 12；`git grep misakano7545` 仅命中 module 路径与 import。
-- 待办：**未部署**。这批的核心是语音端点，上线前需在 22 的 `data/config.json` 决定
-  `tts_enabled` / `asr_enabled` 是否打开（默认 false 时端点回 403，不影响现有链路）。
+- 部署：**已于 09:56 上线**（见上一条）。`tts_enabled` / `asr_enabled` 保持默认关闭（端点回 403、不影响现有链路），
+  `login_bind_proxy` 显式设为 false（我们没配代理池，绑定出口无收益）。
 
 ### 2026-11-19 10:35 修复 22 的出网代理：换成本机 FlClash 的新订阅
 
