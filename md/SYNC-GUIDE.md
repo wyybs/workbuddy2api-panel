@@ -58,6 +58,16 @@
 ## 3. 同步动作
 
 ```bash
+# 0. 并发自检（多会话 / automation 同时跑同一仓库会互相覆盖文档、重复部署）
+git fetch origin
+git status --porcelain                      # 必须为空
+git log -1 --format='最近提交 %h %ad %an' --date=format:'%m-%d %H:%M:%S'
+#   最近提交在 15 分钟内、且不是本会话产生的 → 有人正在动这个仓库：
+#   先 `git pull --ff-only` 对齐到远端，再决定要不要继续；
+#   若已经部署过一轮，本轮只补差异，别重复构建。
+#   （2026-11-23 实证：两个会话同跑同步，代码没撞（收敛到同一组 port 提交），
+#     但 SYNC-LOG/GUIDE 被来回覆盖三轮，且各自部署了一次。）
+
 # 1. 巡检（只读）
 bash ~/.workbuddy/skills/wyybs-fork-upstream-sync/scripts/inspect.sh .
 
@@ -148,6 +158,7 @@ dns:
 ## 4. 校验清单（每次必跑）
 
 - [ ] `git status --porcelain` 为空
+- [ ] 动手前做过并发自检（§3 第 0 步）：HEAD 最近提交在 15 分钟内时，已先 `fetch` + 对齐远端
 - [ ] `go build ./...` 通过
 - [ ] `go test ./...` 通过（442 个测试文件，慢是正常的）
 - [ ] 路由计数回到 76 / 34
