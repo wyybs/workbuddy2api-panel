@@ -24,7 +24,7 @@
 | 能力 | 基线值 | 怎么量 |
 |---|---|---|
 | 面板路由数 | 76 | `grep -rhoE 'HandleFunc\("' internal/panel \| wc -l` |
-| 服务端路由数 | 30 | `grep -rhoE 'HandleFunc\("' internal/server \| wc -l` |
+| 服务端路由数 | 34 | `grep -rhoE 'HandleFunc\("' internal/server \| wc -l` |
 | 模型白名单逻辑 | 存在 `NormalizeAllowedModels` | `grep -rn NormalizeAllowedModels internal/livecfg` |
 | 账号池选号链路 | `pick.go` / `cooldown.go` / `plan.go` 均在 | `ls internal/pool` |
 
@@ -45,6 +45,10 @@
 > → **76 / 30**（2026-11-17，两段共 18 条跟入：第一段 10 条行为修复维持 70 / 27；第二段 8 条
 > 补齐 B 批与新功能——模型规则 +5、混元 3D +3，另加 `GET /panel/api/tasks/live` +1 与
 > `/status` 积分语义。注：11-16 预估的 75 / 30 少算了任务中心实时卡这一条）。
+> → **76 / 34**（2026-11-23，随上游 27 条提交跟入：官方语音端点 `POST /v1/audio/speech` +
+> `POST /v1/audio/transcriptions`、DeepSeek 官方工具形状别名 `POST /v1/tools/search` +
+> `POST /v1/tools/fetch`，服务端 +4；面板路由不变。另新增配置键 `login_bind_proxy` /
+> `tts_enabled` / `asr_enabled`，后者两项默认 false、关着回 403）。
 >
 > ⚠️ 计数口径是**出现次数**（含测试文件里的 httptest mux），不能单看数字判收窄。
 > 判「有没有被砍能力」用路由集合差集：
@@ -111,8 +115,8 @@ git fetch /tmp/wb2.bundle local && git merge --ff-only FETCH_HEAD && rm -f /tmp/
 
 - [ ] `git status --porcelain` 为空
 - [ ] `go build ./...` 通过
-- [ ] `go test ./...` 通过（357 个测试文件，慢是正常的）
-- [ ] 路由计数回到 76 / 30
+- [ ] `go test ./...` 通过（442 个测试文件，慢是正常的）
+- [ ] 路由计数回到 76 / 34
 - [ ] `go.mod` 的 module 路径仍是我们 fork 的（若上游改名需评估）
 - [ ] `md/SYNC-LOG.md` 已追加一条，含回滚 tag
 - [ ] `origin/local` 与 `origin/main` 均已推送（`main` 只允许 ff；用 `git ls-remote` 复核，别看 fork 页面）

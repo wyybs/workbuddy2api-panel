@@ -10,6 +10,47 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-23 09:48 跟入上游 27 个提交（官方语音端点 / DeepSeek 工具别名 / 登录绑出口），零收窄，基线 76 / 34
+
+- 巡检：上次同步点 `85179d4`（11-19 10:19），本次 `inspect.sh` 自动 ff `main` → **`24e59f8`**
+  （新 tag 两个：`v2026.11.20.1558`、`v2026.11.21.939`），`local` @ `d526246`，工作区干净。
+  新提交 **27 条**（全部单亲，无真 merge 节点），49 文件 +3700 / −82。
+- 收窄判定：**零收窄**。路由集合双向差集为空（本地缺上游 = 0）；面板路由 76 不变、**服务端路由 30 → 34**
+  （纯新增 4 条，见下）；无删除文件；无新增写死 `misakano7545` 的地址。
+- 回滚 tag：**`pre-sync-20261123-094423`**（= `d526246`，`git reset --hard` 可整段退回）。
+- 搬入 **27 条 `port:` 提交，零冲突**（未触发任何手工解冲突）：
+  - **官方语音端点（issue #277）12 条**：`923dbec`（`POST /v1/audio/speech`、`POST /v1/audio/transcriptions` 落地）、
+    `e1280ca`（ASR multipart 的 Content-Type 被 CommonHeaders 覆盖成 `application/json`）、
+    `08cb935`（ASR 3MB 上限在入口挡掉、15053 归请求级、TTS 认 SSE 错误帧）、
+    `d5ce7de`（TTS 缺 done 判截断、ASR 认 `response_format`、音频台账带账号）、
+    `269b92e`（未配置的音色归请求级，不再轮转全池）、`026f9c0`（ASR 请求体落盘前钳到 3MB+64KiB 并清临时文件）、
+    `d582d70` / `b902132`（文档标注已真号跑通）、`c405254` + `b8a704b` + `56c826c`（回归与流式探针）、
+    `be99749`（`probe/crossacct`：判定上游前缀缓存按账号隔离）
+  - **工具与 schema 3 条**：`676f9da`（PR #279 新增 `POST /v1/tools/search`、`POST /v1/tools/fetch` 两个 DeepSeek 官方形状别名）、
+    `abed839`（出站前把工具 schema 里 JS 的 `\u` 转义译成 RE2 的 `\x{...}`，issue #276）、
+    `937fef2`（单层转义 surrogate 对照用例）
+  - **加号登录绑出口 1 条**：`6ef2450`（PR #278：OAuth 登录本身也走号池出口，落盘后钉成该号固定绑定；
+    新增 `features.login_bind_proxy`，默认 **true**——取反字段 `LoginBindOff` 让零值=绑定）
+  - **归因纠偏 4 条**：`d629a8c`（11102 模型 id 不存在归请求级，不再换号白打全池）、
+    `b35a8d0`（11103 与 fetch 的 15021/15022 归请求级/边缘级）、`d40d4b8`（选不到号时把成因拆解写进 503 与 WARN）、
+    `9ad206b`（PR #281：同轮助手文字与工具调用合并回放）
+  - **视频与 MCP 4 条**：`c27d731`（参考素材补成上游要的对象数组）、`4221f2b`（提交阶段 4xx 不罚号不换号）、
+    `24e59f8`（`generate_video` 暴露三个 `reference_*` 参数）、`e2d0eb6`（参考素材形状与 URL 可达性实测结论）
+  - **其余 3 条**：`c84b6f2`（过期时间夹具改成相对当前时间，避免写死时间串今天过期）、
+    `0eeeb1e` / `5b40d46`（README）
+- 新配置键 **3 个**（`config.example.json` 已同步）：`features.login_bind_proxy`（默认 true）、
+  `features.tts_enabled` / `features.asr_enabled`（默认 false，关着回 **403** 不是 404——与 `three_d_enabled` 同惯例）。
+- 剥离：**无新增**。`6724698`（compose 默认 GHCR 上游镜像）、`fdcbdc7`（Dockerfile GOPROXY 官方源）继续不跟；
+  本批 27 条**未触及** `Dockerfile` / `docker-compose.yml` / `.github`。
+- 校验：
+  - `go build ./...` / `go vet ./...` 通过。
+  - `go test ./...`：**30 包全绿 0 FAIL**（`internal/panel` 66.7s、`internal/scheduler` 32s、`internal/server` 39s、
+    `internal/updater` 16.8s —— 本次沙箱**未**拦 fork，11-09 那种 `Access is denied` 未复现）。
+  - 代码层 `git diff main..local -- '*.go' '*.js' '*.html' 'go.mod'` **为空**；`git status --porcelain` 空。
+  - 路由 76 / 34、`NormalizeAllowedModels` 12；`git grep misakano7545` 仅命中 module 路径与 import。
+- 待办：**未部署**。这批的核心是语音端点，上线前需在 22 的 `data/config.json` 决定
+  `tts_enabled` / `asr_enabled` 是否打开（默认 false 时端点回 403，不影响现有链路）。
+
 ### 2026-11-19 10:35 修复 22 的出网代理：换成本机 FlClash 的新订阅
 
 - 起因：11-18 起 22 的 mihomo 节点全部超时（日志 `dial 飞鸟云 … context deadline exceeded`），
