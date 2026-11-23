@@ -111,6 +111,31 @@ cd /home/appsrv/workbuddy2api-panel
 git fetch /tmp/wb2.bundle local && git merge --ff-only FETCH_HEAD && rm -f /tmp/wb2.bundle
 ```
 
+**2026-11-23 补充：另一种挂法——DNS 死锁，别误判成节点失效。**
+
+日志区别很关键：
+
+| 日志 | 含义 | 处理 |
+|---|---|---|
+| `dial … error: context deadline exceeded` | 节点地址连不上（机场换入口 / 节点挂了） | 换订阅 |
+| `dial … error: dns resolve failed: couldn't find ip` | **mihomo 自己解析不出域名** | 改 DNS 配置 |
+
+判据：`docker exec mihomo getent hosts github.com` 能解析、`nc -z 119.29.29.29 53` 通，
+就说明容器网络没问题，是 mihomo 的 DNS 模块死锁了。
+
+根因：从 FlClash 客户端抄来的配置里 `dns.respect-rules: true` + `nameserver` 全是 DoH 域名
+（`https://doh.pub/dns-query`）。DNS 查询要遵循代理规则 → 走 hysteria2 节点 → 节点域名又要先解析
+→ **循环依赖**。客户端有系统解析器兜底，容器里没有。
+
+修法：
+
+```yaml
+dns:
+  respect-rules: false          # 关键：DNS 不走代理规则
+  nameserver: ["223.5.5.5", "119.29.29.29"]   # 用 IP，别再放 DoH
+  fallback: [...]               # DoH 留给 fallback，配合 fallback-filter geoip CN 防污染
+```
+
 ## 4. 校验清单（每次必跑）
 
 - [ ] `git status --porcelain` 为空

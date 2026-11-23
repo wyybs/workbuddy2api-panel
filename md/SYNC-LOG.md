@@ -10,6 +10,38 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-23 09:56 部署到 192.168.2.22（27 条上线；修了 mihomo 的 DNS 死锁）
+
+- 服务器 `81b7bdd → c6fd37c`。镜像回滚点：**`pre-20261123-0951`**；
+  配置备份 `config.json.bak-20261123-0950`。
+- **配置变更**：`features.login_bind_proxy` 显式设为 **false**（上游默认 true）。
+  理由：我们没配代理池，绑定出口无收益；加号是关键低频操作，不给它引入新路径。
+  实测启动后 `features.login_bind_proxy=false` 生效，对话链路正常。
+- 🔴 **mihomo 又挂了一次，这次不是节点问题，是 DNS 死锁**：
+  - 现象：`git pull` 三次全 `gnutls_handshake`，mihomo 日志是
+    `dial 飞鸟云 … error: dns resolve failed: couldn't find ip`（**不是**上次那种 `context deadline exceeded`）。
+  - 排查：容器内 `getent hosts github.com` 正常、`119.29.29.29:53` 可达 —— 容器网络没问题，
+    是 mihomo 自己的 DNS 模块解析不出来。
+  - 根因：抄自 FlClash 客户端的配置里 `dns.respect-rules: true` + `nameserver` 全是 DoH 域名
+    （`https://doh.pub/dns-query`）。DNS 查询要遵循代理规则 → 走 hysteria2 节点 →
+    节点域名又要先解析 → 循环依赖。客户端里有系统解析器兜底，容器里没有。
+  - 修法：`respect-rules: true → false`，`nameserver` 换成境内 IP（`223.5.5.5` / `119.29.29.29`），
+    `fallback` 的 DoH 与 `fallback-filter: geoip CN` 保留（防污染）。
+    备份 `config.yaml.bak-20261123-0953-dns2`。
+  - 结果：代理连测 **1.6s / 1.3s / 1.1s**，`git ls-remote` **1.27s**，`git pull` 一次成功。
+- 重建 **53s**（比前几次快，基础镜像层已缓存）。
+- 验证：
+  - 容器 `Up (healthy)`；`/healthz` → `healthy:5 / total:5`；`/panel/` 200；
+  - 短对话 **200 / 2.01s / 语音**；
+  - **`POST /v1/audio/speech` → 403 `tts_disabled`**，带中文提示「请在面板配置里打开
+    features.tts_enabled（默认关闭）」—— 开关按预期关着，端点已就位；
+  - **`POST /v1/tools/search` → 200**，返回真实搜索结果（`provider=1`、`results[]`、上游 favicon 域名），
+    这个新能力**无需开关即可用**；
+  - 新端点用 GET 探测时回 **405**（它们是 POST，405 而非 404 = 路由已注册）；
+  - 日志 **1 条 WARN**（`global models … status 500`，既有）。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261123-0951 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard 81b7bdd` 后重建。
+
 ### 2026-11-23 09:48 跟入上游 27 个提交（官方语音端点 / DeepSeek 工具别名 / 登录绑出口），零收窄，基线 76 / 34
 
 - 巡检：上次同步点 `85179d4`（11-19 10:19），本次 `inspect.sh` 自动 ff `main` → **`24e59f8`**
