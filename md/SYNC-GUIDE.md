@@ -111,10 +111,21 @@ env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY \
   git fetch upstream --prune --tags
 ```
 
-22 上更彻底：它**没有直连出网**，代理节点挂掉时只剩 bundle 一条路。动手前先按文末「22 代理自检」定性。
+**🔴 2026-11-24 更正：22 一直能直连 GitHub，之前「拉不到」全是代理挡路。**
+
+停用 mihomo、清掉 `/root/.curlrc` 的 `proxy` 与 `.gitconfig` 的 URL 级代理后实测：
+`git ls-remote` **1.16 秒**、`git pull` 一次成功。所以 22 **不需要**任何代理就能拉代码。
+
+根因：以前所有「直连测试」都被 `.curlrc` 的 `proxy = "http://127.0.0.1:7890"` 接管了
+（`--noproxy` 只是"跳过代理的主机列表"，不是禁用代理，得用 `-x ""` 才真直连），
+于是测出来的是"代理不通"，被误读成"22 没有直连出网"。**这个误判持续了 5 天，
+期间浪费了三次 bundle 兜底和一轮代理修复。**
+
+现状：mihomo 已停用（`docker-compose.yml` 里挂在 `profiles: ["proxy"]`，默认不启动）。
+22 拉代码直接 `git pull` 即可；网络慢或想跳过 TLS 抖动时再用 bundle：
 
 ```bash
-# 本地：只打增量（服务器当前 HEAD 之后的部分，通常几百 KB）
+# 本地：只打增量（服务器当前 HEAD 之后的部分，通常几十～几百 KB）
 git bundle create /tmp/wb2.bundle <服务器当前HEAD>..local
 scp -i ~/.ssh/id_wb_222 /tmp/wb2.bundle root@192.168.2.22:/tmp/
 # 服务器
@@ -122,7 +133,14 @@ cd /home/appsrv/workbuddy2api-panel
 git fetch /tmp/wb2.bundle local && git merge --ff-only FETCH_HEAD && rm -f /tmp/wb2.bundle
 ```
 
-**2026-11-23 补充：另一种挂法——DNS 死锁，别误判成节点失效。**
+万一哪天确实需要代理（例如拉境外镜像），临时拉起：
+
+```bash
+cd /data/docker && docker compose --profile proxy up -d mihomo   # 用完记得 stop
+```
+
+**2026-11-23 补充（历史参考——mihomo 已于 11-24 停用，本节只在临时拉 `--profile proxy` 时才用得上）：
+另一种挂法——DNS 死锁，别误判成节点失效。**
 
 日志区别很关键：
 

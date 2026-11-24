@@ -10,6 +10,33 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-24 16:05 停用 22 的出网代理（mihomo），发现「直连一直可用」的真相
+
+- 决策：老大判断「机场订阅过一段时间就过期，不如不用」，停掉 mihomo。**同意**，
+  理由是它只服务过 git 拉 GitHub 一件事，三天坏了三次，而 22 是长期无人值守的机器，
+  需要人工维护订阅的组件放上去就是负债。
+- 前置排查：`docker ps` 全部容器的 `proxy` 环境变量为空（**无业务依赖**）；
+  `network_mode: host` 那个是 `frpc`（内网穿透），与代理无关；宿主机只有 `/root/.curlrc` 配了代理。
+- 处置（四步，全部可逆）：
+  1. `docker-compose.yml` 里给 mihomo 加 `profiles: ["proxy"]`（配置完整保留，默认不启动）；
+     备份 `docker-compose.yml.bak-20261124-1602`。
+  2. `docker compose stop mihomo && docker compose rm -f mihomo`（容器已不存在，配置目录
+     `/data/docker/mihomo` 保留 9.2M）；
+  3. `/root/.curlrc` 的 `proxy` 行注释掉（备份 `.curlrc.bak-*`）；
+  4. `.gitconfig` 里 7 条 URL 级代理全部 `--unset-all`。
+- 🔴 **意外发现，推翻了持续 5 天的错误结论**：清掉代理后 22 **本来就能直连 GitHub**——
+  `git ls-remote` **1.16 秒**、`git pull` 一次成功。
+  之前所有「拉不到」全是代理在挡路：git 的 URL 级代理指向 7890，mihomo 一挂 git 就挂。
+  而以前每次测「直连」都被 `.curlrc` 的 `proxy =` 接管了
+  （`--noproxy` 是"跳过代理的主机列表"，**不是**禁用代理；要 `-x ""` 才是真直连），
+  测出来的其实是"代理不通"，被误读成"22 没有直连出网"。
+- 验证：容器 `Up (healthy)`、`/healthz` 5/5；宿主机 `curl` 境内 0.07～0.13s、
+  github 8.0s（慢但通）；`git ls-remote` 1.16s；`git pull` 成功。
+- 影响：**同步流程简化**——22 不再需要 bundle 兜底，直接 `git pull`；bundle 保留为提速备选。
+  `SYNC-GUIDE.md` §3.1 已改写（含这次误判的复盘），DNS 死锁那节标注为历史参考。
+- 恢复（万一要代理）：`cd /data/docker && docker compose --profile proxy up -d mihomo`，
+  再把 curlrc 与 git 的代理配置补回（备份文件都在）。
+
 ### 2026-11-24 15:57 部署到 192.168.2.22（5 条上线；mihomo 第三次犯 DNS 病）
 
 - 服务器 `d9aa40e → 2ef4449`。镜像回滚点：**`pre-20261124-1554`**；
