@@ -10,6 +10,29 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-24 15:57 部署到 192.168.2.22（5 条上线；mihomo 第三次犯 DNS 病）
+
+- 服务器 `d9aa40e → 2ef4449`。镜像回滚点：**`pre-20261124-1554`**；
+  配置备份 `config.json.bak-20261124-1554`（本批无配置变更）。
+- 🔴 **mihomo 第三次故障，仍是 DNS，但这次配置是对的**：
+  `git pull` 三连 `gnutls_handshake`，日志 `dial 飞鸟云 … dns resolve failed: couldn't find ip`。
+  而 `respect-rules: false`、`nameserver: [223.5.5.5, 119.29.29.29]` 都还在（昨天改的没丢），
+  容器内 `getent hosts github.com` 正常、`nc -uz 223.5.5.5 53` 也通。
+  **处置：`docker compose restart mihomo`，20 秒后恢复**（3 次 200 / 2.2–2.4s）。
+  结论：这是 mihomo **跑一段时间后 DNS 模块退化**，重启即恢复；不是配置错误。
+  三次故障对比：11-19 节点域名失效（换订阅）→ 11-23 配置循环依赖（改 DNS 段）→
+  11-24 运行期退化（重启）。
+- 重建 **1m21s**。
+- 验证：
+  - 容器 `Up (healthy)`；`/healthz` → `healthy:5 / total:5`；`/panel/` 200；
+  - 短对话 **200 / 1.75s / 续写**；
+  - 长回答 **200 / 3.66s / 254 字 / finish=stop**，结尾完整句，**正文不含任何控制标记**
+    （`browser-complete` / `::` 均未出现）—— 本批的「控制标记不再当正文透传」验证通过；
+  - 日志 **1 条 WARN**（`global models … status 500`，既有）。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261124-1554 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard d9aa40e` 后重建。
+- ⚠️ **待办**：mihomo 需要定期重启（建议宿主机 cron 每天一次），否则会在某次拉代码时突然失败。
+
 ### 2026-11-24 15:52 跟入 5 条（browser-complete 控制标记 / 续写中性化），基线维持 76 / 34
 
 - 并发自检（§3 第 0 步）：工作区干净、最近提交 29 小时前、`local = origin/local`，无他会话在动。
