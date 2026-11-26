@@ -10,6 +10,24 @@
 
 ## 时间线（新→旧）
 
+### 2026-11-26 10:15 部署到 192.168.2.22（5 条上线；直连 pull 2.5s，bundle 彻底退场）
+
+- 服务器 `a8b6cb9 → c364b9d`。镜像回滚点：**`pre-20261126-1013`**；
+  配置备份 `config.json.bak-20261126-1013`（本批无配置变更）。
+- **停代理后第一次部署：`git pull` 直连 2.5 秒一次成功**，全程没用 bundle。
+- 重建 **1m23s**。
+- 验证：
+  - 容器 `Up (healthy)`；`/healthz` → `healthy:5 / total:5`；`/panel/` 200；
+  - 新路由 `GET /panel/api/accounts/export` **401**（未带鉴权 = 已注册，非 404）；
+  - 短对话 **200 / 2.16s / 汇总**；
+  - `/v1/embeddings` **403 `embeddings_disabled`** —— 开关本就关着（`features.embeddings_enabled=false`），
+    端点按预期回 403 带提示，说明 #290 的改动没破坏关闭态语义；
+  - 日志 **1 条 WARN**，且文案升级为
+    `global models: enterprise endpoint failed (degraded to v3/config, catalog served normally)`
+    —— `392f8ac` 生效：现在会说明「已降级但目录正常服务」，且同种降级只报一次。
+- 回滚：`docker tag workbuddy2api-panel-wb2api:pre-20261126-1013 workbuddy2api-panel-wb2api:latest`
+  + `docker compose up -d --force-recreate`；或服务器 `git reset --hard a8b6cb9` 后重建。
+
 ### 2026-11-26 10:12 跟入 5 条（面板批量导出 / embeddings 归因 / 降级日志去重），基线 76/34 → 77/34
 
 - 并发自检（§3 第 0 步）：工作区干净、最近提交 42 小时前、无他会话在动。
