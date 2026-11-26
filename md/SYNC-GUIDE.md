@@ -24,7 +24,7 @@
 
 | 能力 | 基线值 | 怎么量 |
 |---|---|---|
-| 面板路由数 | 76 | `grep -rhoE 'HandleFunc\("' internal/panel \| wc -l` |
+| 面板路由数 | 77 | `grep -rhoE 'HandleFunc\("' internal/panel \| wc -l` |
 | 服务端路由数 | 34 | `grep -rhoE 'HandleFunc\("' internal/server \| wc -l` |
 | 模型白名单逻辑 | 存在 `NormalizeAllowedModels` | `grep -rn NormalizeAllowedModels internal/livecfg` |
 | 账号池选号链路 | `pick.go` / `cooldown.go` / `plan.go` 均在 | `ls internal/pool` |
@@ -50,6 +50,8 @@
 > `POST /v1/audio/transcriptions`、DeepSeek 官方工具形状别名 `POST /v1/tools/search` +
 > `POST /v1/tools/fetch`，服务端 +4；面板路由不变。另新增配置键 `login_bind_proxy` /
 > `tts_enabled` / `asr_enabled`，后者两项默认 false、关着回 403）。
+> → **77 / 34**（2026-11-26，随上游 5 条跟入：面板账号池批量导出 `GET /panel/api/accounts/export`
+> +1；另含 embeddings 请求级错误码归一、模型目录降级 WARN 去重、错误汇总可标已读）。
 >
 > ⚠️ 计数口径是**出现次数**（含测试文件里的 httptest mux），不能单看数字判收窄。
 > 判「有没有被砍能力」用路由集合差集：
@@ -180,7 +182,7 @@ dns:
 - [ ] 动手前做过并发自检（§3 第 0 步）：HEAD 最近提交在 15 分钟内时，已先 `fetch` + 对齐远端
 - [ ] `go build ./...` 通过
 - [ ] `go test ./...` 通过（442 个测试文件，慢是正常的）
-- [ ] 路由计数回到 76 / 34
+- [ ] 路由计数回到 77 / 34
 - [ ] `go.mod` 的 module 路径仍是我们 fork 的（若上游改名需评估）
 - [ ] `md/SYNC-LOG.md` 已追加一条，含回滚 tag
 - [ ] `origin/local` 与 `origin/main` 均已推送（`main` 只允许 ff；用 `git ls-remote` 复核，别看 fork 页面）
